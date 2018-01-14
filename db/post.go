@@ -1,10 +1,13 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-openapi/strfmt"
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
-	"log"
+	//"log"
 	"strconv"
 	"time"
 )
@@ -43,58 +46,126 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 
 	postsIds := make([]int64, 0, len(srcPosts))
 	err = conn.QueryRow(` select array_agg(nextval('post_id_seq')::bigint) from generate_series(1,$1)`, len(srcPosts)).Scan(&postsIds)
-	if err != nil {
-		log.Println("CreatePosts:", err)
+	//if err != nil {
+	//	log.Println("CreatePosts:", err)
+	//}
+
+	_, err = conn.Prepare("get_user", `select id from "User" where nickname=$1`)
+	//if err != nil {
+	//	log.Println("CreatePosts:", err)
+	//}
+
+	batch := conn.BeginBatch()
+	users := make([]int32, len(srcPosts))
+	for i, _ := range srcPosts {
+		batch.Queue(
+			`get_user`,
+			[]interface{}{srcPosts[i].Author},
+			nil,
+			[]int16{pgx.BinaryFormatCode},
+		)
 	}
+
+	err = batch.Send(context.Background(), nil)
+	//if err != nil {
+	//	log.Println("CreatePosts: batch send error:", err)
+	//}
+
+	for i, _ := range srcPosts {
+		err = batch.QueryRowResults().Scan(&users[i])
+		if err != nil {
+			//log.Println("CreatePosts: batch scan error:", err)
+			batch.Close()
+			return nil, 404
+		}
+	}
+	batch.Close()
+
+	batch = conn.BeginBatch()
+	for i, _ := range srcPosts {
+		batch.Queue(
+			`select check_parent($1, $2)`,
+			[]interface{}{threadId, srcPosts[i].Parent},
+			[]pgtype.OID{pgtype.Int4OID, pgtype.Int8OID},
+			[]int16{pgx.BinaryFormatCode},
+		)
+	}
+
+	err = batch.Send(context.Background(), nil)
+	//if err != nil {
+	//	log.Println("CreatePosts: batch send error:", err)
+	//}
+
+	for _, _ = range srcPosts {
+		var status int
+		err = batch.QueryRowResults().Scan(&status)
+		if err != nil || status != 201 {
+			//log.Println("CreatePosts: batch scan error:", err)
+			batch.Close()
+			return nil, 409
+		}
+	}
+	batch.Close()
+
+	batch = conn.BeginBatch()
+	for i, _ := range srcPosts {
+		if srcPosts[i].Parent != 0 {
+			batch.Queue(
+				`select parents from post where id = $1`,
+				[]interface{}{srcPosts[i].Parent},
+				[]pgtype.OID{pgtype.Int8OID},
+				[]int16{pgx.BinaryFormatCode},
+			)
+		}
+	}
+
+	err = batch.Send(context.Background(), nil)
+	//if err != nil {
+	//	log.Println("CreatePosts: batch send error:", err)
+	//}
+
+	parents := make([][]int64, len(srcPosts))
+	for i, _ := range srcPosts {
+		if srcPosts[i].Parent != 0 {
+			err = batch.QueryRowResults().Scan(&parents[i])
+			//if err != nil {
+			//	log.Println("CreatePosts: batch scan error:", err)
+			//}
+		}
+
+		parents[i] = append(parents[i], postsIds[i])
+	}
+	batch.Close()
 
 	_, err = conn.Prepare("insert_post", `
         insert into Post (author, message, "thread", isEdited, forum, created, parent, parents, root_parent, id)
         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `)
-	if err != nil {
-		log.Println("CreatePosts:", err)
-	}
+	//if err != nil {
+	//	log.Println("CreatePosts:", err)
+	//}
+
+	batch = conn.BeginBatch()
 
 	for i, _ := range srcPosts {
-		var userId int32
-		err = conn.QueryRow(`select id from "User" where lower(nickname)=lower($1)`, srcPosts[i].Author).Scan(&userId)
-		if err != nil {
-			return nil, 404
-		}
-
-		var status int
-		err = conn.QueryRow(`select check_parent($1, $2)`, threadId, srcPosts[i].Parent).Scan(&status)
-		if status != 201 {
-			log.Println("CreatePosts: check:", err)
-			return nil, 409
-		}
-
 		srcPosts[i].ID = postsIds[i]
-
-		var parents []int64
-		if srcPosts[i].Parent != 0 {
-			err = conn.QueryRow(`
-				select parents from post where id = $1
-			`, srcPosts[i].Parent).Scan(&parents)
-
-			if err != nil {
-				log.Println("CreatePosts:", err)
-			}
-		}
-		parents = append(parents, postsIds[i])
-
-		_, err = conn.Exec(`insert_post`,
-			userId, srcPosts[i].Message, threadId, srcPosts[i].IsEdited, forumId,
-			srcPosts[i].Created, srcPosts[i].Parent, parents, parents[0], srcPosts[i].ID,
-		)
-
 		srcPosts[i].Thread = threadId
 		srcPosts[i].Forum = forumSlug
+
+		batch.Queue(
+			`insert_post`,
+			[]interface{}{users[i], srcPosts[i].Message, threadId, srcPosts[i].IsEdited, forumId,
+				srcPosts[i].Created, srcPosts[i].Parent, parents[i], parents[i][0], srcPosts[i].ID},
+			nil,
+			nil,
+		)
 	}
 
-	if err != nil {
-		log.Println("CreatePosts:", err)
-	}
+	err = batch.Send(context.Background(), nil)
+	//if err != nil {
+	//	log.Println("CreatePosts: batch send error:", err)
+	//}
+	batch.Close()
 
 	return srcPosts, 201
 }
@@ -121,7 +192,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId)
 
 	if err != nil {
-		log.Println("GetPost:", err)
+		//log.Println("GetPost:", err)
 		return models.PostFull{}, 404
 	}
 
@@ -138,7 +209,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, forumId).Scan(&forum.Slug, &forum.Title, &forum.User)
 
 		if err != nil {
-			log.Println("GetPost:", err)
+			//log.Println("GetPost:", err)
 			return models.PostFull{}, 404
 		}
 
@@ -152,7 +223,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		postInfo.Thread = &thread
 
 		err = conn.QueryRow(`
-            select thread.id, "User".nickname, thread.created, forum.slug, thread.message, thread.slug, thread.title, thread.votes
+            select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
             from thread
             join "User" on "User".id = thread.author
             join forum on forum.id = thread.forum
@@ -160,7 +231,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, post.Thread).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 
 		if err != nil {
-			log.Println("GetPost:", err)
+			//log.Println("GetPost:", err)
 			return models.PostFull{}, 404
 		}
 
@@ -177,7 +248,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, userId).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
 
 		if err != nil {
-			log.Println("GetPost:", err)
+			//log.Println("GetPost:", err)
 			return models.PostFull{}, 404
 		}
 	}
@@ -200,7 +271,7 @@ func ModifyPost(postUpdate models.PostUpdate, postId int64) (post models.Post, s
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread)
 
 	if err != nil {
-		log.Println("ModifyPost:", err)
+		//log.Println("ModifyPost:", err)
 		return models.Post{}, 404
 	}
 
@@ -243,7 +314,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 	}
 
 	if err != nil {
-		log.Println("GetPosts:", err)
+		//log.Println("GetPosts:", err)
 		return nil, 404
 	}
 
@@ -284,7 +355,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			log.Println("GetPosts:", err)
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -333,7 +404,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			log.Println("GetPosts:", err)
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -377,7 +448,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			log.Println("GetPosts:", err)
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
