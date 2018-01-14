@@ -7,14 +7,11 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 # Копируем исходный код в Docker-контейнер
 ADD ./ $GOPATH/src/github.com/oleggator/tp-db
 
-# Обвновление списка пакетов
-RUN apt-get -y update
-
 #
 # Установка postgresql
 #
 ENV PGVER 9.6
-RUN apt-get install -y sudo postgresql-$PGVER --no-install-recommends
+RUN apt-get -y update && apt-get install -y sudo postgresql-$PGVER postgresql-contrib-$PGVER --no-install-recommends
 
 # Run the rest of the commands as the ``postgres`` user created by the ``postgres-$PGVER`` package when it was ``apt-get installed``
 USER postgres
@@ -26,7 +23,8 @@ ENV PGPASSWORD docker
 RUN /etc/init.d/postgresql start &&\
     psql --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';" &&\
     createdb -O docker docker &&\
-    psql docker docker -h 127.0.0.1 -f $GOPATH/src/github.com/oleggator/tp-db/initdb.sql &&\
+    psql docker docker -h 127.0.0.1 -f $GOPATH/src/github.com/oleggator/tp-db/sql/initdb.sql &&\
+    psql docker docker -h 127.0.0.1 -f $GOPATH/src/github.com/oleggator/tp-db/sql/functions.sql &&\
     /etc/init.d/postgresql stop
 
 # Adjust PostgreSQL configuration so that remote connections to the
@@ -44,15 +42,6 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
 # Back to the root user
 USER root
-
-# Добавляем зависимости генератора
-RUN go get -v github.com/go-swagger/go-swagger/cmd/swagger
-RUN go get -v github.com/kataras/iris
-RUN go get -v github.com/go-openapi/errors
-RUN go get -v github.com/go-openapi/strfmt
-RUN go get -v github.com/go-openapi/swag
-RUN go get -v github.com/go-openapi/validate
-RUN go get -v github.com/jackc/pgx
 
 # Объявлем порт сервера
 EXPOSE 5000
