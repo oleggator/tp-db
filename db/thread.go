@@ -273,7 +273,7 @@ func GetThread(threadSlug string) (thread models.Thread, status int) {
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, thread.slug, thread.title, thread.votes
+			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
@@ -281,7 +281,7 @@ func GetThread(threadSlug string) (thread models.Thread, status int) {
 		`, threadId).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, thread.slug, thread.title, thread.votes
+			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
