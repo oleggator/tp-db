@@ -79,7 +79,7 @@ func ThreadSlugOrIdDetailsPost(ctx *fasthttp.RequestCtx) {
 	threadUpdate.UnmarshalBinary(ctx.PostBody())
 
 	ctx.SetContentType("application/json")
-	switch thread, status := db.ModifyThread(threadUpdate, ctx.UserValue("slug_or_id").(string)); status {
+	switch thread, status := db.ModifyThread(&threadUpdate, ctx.UserValue("slug_or_id").(string)); status {
 	case 200:
 		json, _ := thread.MarshalBinary()
 
@@ -132,7 +132,7 @@ func ThreadSlugOrIdVotePost(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 
-	switch thread, status := db.VoteThread(vote, ctx.UserValue("slug_or_id").(string)); status {
+	switch thread, status := db.VoteThread(&vote, ctx.UserValue("slug_or_id").(string)); status {
 	case 200:
 		json, _ := thread.MarshalBinary()
 

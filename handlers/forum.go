@@ -53,7 +53,7 @@ func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 
-	switch thread, status := db.CreateThread(srcThread); status {
+	switch thread, status := db.CreateThread(&srcThread); status {
 	case 201:
 		json, _ := thread.MarshalBinary()
 
@@ -84,7 +84,7 @@ func ForumSlugDetailsGet(ctx *fasthttp.RequestCtx) {
 
 	switch user, status := db.GetForumDetails(ctx.UserValue("slug").(string)); status {
 	case 200:
-		json, _ := (*user).MarshalBinary()
+		json, _ := user.MarshalBinary()
 
 		ctx.SetStatusCode(200)
 		ctx.Write(json)

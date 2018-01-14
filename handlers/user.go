@@ -13,7 +13,7 @@ func UserNicknameCreatePost(ctx *fasthttp.RequestCtx) {
 	srcUser.UnmarshalBinary(body)
 	srcUser.Nickname = ctx.UserValue("nickname").(string)
 
-	users, ok := db.CreateUser(srcUser)
+	users, ok := db.CreateUser(&srcUser)
 
 	ctx.SetContentType("application/json")
 
@@ -67,7 +67,7 @@ func UserNicknameProfilePost(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 
-	switch user, status := db.UpdateUser(srcUser); status {
+	switch user, status := db.UpdateUser(&srcUser); status {
 	case 200:
 		json, _ := user.MarshalBinary()
 

@@ -51,7 +51,7 @@ func PostIdDetailsPost(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 
-	switch post, status := db.ModifyPost(postUpdate, postId); status {
+	switch post, status := db.ModifyPost(&postUpdate, postId); status {
 	case 200:
 		json, _ := post.MarshalBinary()
 

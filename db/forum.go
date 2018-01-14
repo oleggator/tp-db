@@ -2,7 +2,7 @@ package db
 
 import (
 	"github.com/oleggator/tp-db/models"
-	"log"
+	//"log"
 )
 
 func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
@@ -14,19 +14,20 @@ func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
 	).Scan(&userId, &srcForum.User)
 
 	if err != nil {
-		log.Println("CreateForum", err)
+		//log.Println("CreateForum", err)
 		return nil, 404
 	}
 
-	ct, _ := conn.Exec(`
+	_, err = conn.Exec(`
            insert into Forum (slug, title, moderator)
            values ($1, $2, $3);`,
 		srcForum.Slug, srcForum.Title, userId,
 	)
 
-	if ct.RowsAffected() > 0 {
+	if err == nil {
 		return srcForum, 201
 	}
+	//log.Println("CreateForum:", err)
 
 	conn.QueryRow(
 		`select slug, title from forum
@@ -48,7 +49,7 @@ func GetForumDetails(slug string) (forum *models.Forum, status int) {
 	`, slug).Scan(&forumId, &forum.Slug, &forum.Title, &forum.User)
 
 	if err != nil {
-		log.Println("GetForumDetails:", err)
+		//log.Println("GetForumDetails:", err)
 		return forum, 404
 	}
 

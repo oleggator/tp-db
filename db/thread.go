@@ -5,38 +5,38 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	"log"
+	//"log"
 	"strconv"
 	"time"
 )
 
-func CreateThread(srcThread models.Thread) (thread models.Thread, status int) {
+func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status int) {
 	var (
 		forumSlug string
 		forumId   int32
 	)
 	err := conn.QueryRow(
 		`select id, slug from forum
-        where lower(slug)=lower($1::text);`,
+        where slug=$1`,
 		srcThread.Forum,
 	).Scan(&forumId, &forumSlug)
 
 	if err != nil {
-		log.Println("CreateThread:", err)
-		return models.Thread{}, 404
+		//log.Println("CreateThread:", err)
+		return nil, 404
 	}
 
 	var userId int32
 	var nickname string
 	err = conn.QueryRow(
 		`select id, nickname from "User"
-		where lower(nickname)=lower($1::text);`,
+		where nickname=$1`,
 		srcThread.Author,
 	).Scan(&userId, &nickname)
 
 	if err != nil {
-		log.Println("CreateThread:", err)
-		return models.Thread{}, 404
+		//log.Println("CreateThread:", err)
+		return nil, 404
 	}
 
 	var (
@@ -48,7 +48,7 @@ func CreateThread(srcThread models.Thread) (thread models.Thread, status int) {
 
 	err = conn.QueryRow(
 		`select id, author, created, forum, Thread.message, slug, title, votes from Thread
-		where lower(slug)=lower($1::text);`,
+		where slug=$1`,
 		srcThread.Slug,
 	).Scan(
 		&existingThread.ID,
@@ -103,12 +103,11 @@ func CreateThread(srcThread models.Thread) (thread models.Thread, status int) {
 		}
 
 		if err == nil {
-			thread = srcThread
-			thread.Forum = forumSlug
-			thread.Author = nickname
-			thread.ID = threadId
+			srcThread.Forum = forumSlug
+			srcThread.Author = nickname
+			srcThread.ID = threadId
 
-			return thread, 201
+			return srcThread, 201
 		}
 	}
 
@@ -118,18 +117,18 @@ func CreateThread(srcThread models.Thread) (thread models.Thread, status int) {
 		existingForumId,
 	).Scan(&existingThread.Forum)
 
-	log.Println(err)
+	//log.Println(err)
 
 	err = conn.QueryRow(
 		`select nickname from "User"
 		where id=$1;`,
 		authorId,
 	).Scan(&existingThread.Author)
-	if err != nil {
-		log.Println("CreateThread:", err)
-	}
+	//if err != nil {
+	//	log.Println("CreateThread:", err)
+	//}
 
-	return existingThread, 409
+	return &existingThread, 409
 }
 
 func GetThreads(slug string, limit int32, sinceString string, desc bool) (threads []models.Thread, status int) {
@@ -139,7 +138,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 	)
 	err := conn.QueryRow(
 		`select id, slug from forum
-        where lower(slug)=lower($1::text);`,
+        where slug=$1`,
 		slug,
 	).Scan(&forumId, &forumSlug)
 
@@ -211,14 +210,14 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 	return threads, 200
 }
 
-func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, status int) {
+func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, status int) {
 	var userId int32
 	if err := conn.QueryRow(`select id from "User" where nickname=$1`, vote.Nickname).Scan(&userId); err != nil {
-		log.Println("VoteThread: getUser:", err)
-		return models.Thread{}, 404
+		//log.Println("VoteThread: getUser:", err)
+		return nil, 404
 	}
 
-	thread = models.Thread{}
+	thread = &models.Thread{}
 	var created time.Time
 
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
@@ -241,16 +240,17 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 	}
 
 	if err != nil {
-		log.Println("VoteThread: getThreadId:", err)
-		return models.Thread{}, 404
+		//log.Println("VoteThread: getThreadId:", err)
+		return nil, 404
 	}
 
 	thread.Created = (*strfmt.DateTime)(&created)
 
 	var delta int
-	if err := conn.QueryRow(`select vote_thread($1, $2, $3)`, thread.ID, userId, vote.Voice == 1).Scan(&delta); err != nil {
-		log.Println("VoteThread: vote_thread:", err)
-	}
+	err = conn.QueryRow(`select vote_thread($1, $2, $3)`, thread.ID, userId, vote.Voice == 1).Scan(&delta)
+	//if err != nil {
+	//log.Println("VoteThread: vote_thread:", err)
+	//}
 
 	queryString := fmt.Sprintf(`
 			update Thread
@@ -259,15 +259,16 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 			returning votes
 	`, delta)
 
-	if err := conn.QueryRow(queryString, thread.ID).Scan(&thread.Votes); err != nil {
-		log.Println("VoteThread:", err)
-	}
+	err = conn.QueryRow(queryString, thread.ID).Scan(&thread.Votes)
+	//if err != nil {
+	//log.Println("VoteThread:", err)
+	//}
 
 	return thread, 200
 }
 
-func GetThread(threadSlug string) (thread models.Thread, status int) {
-	thread = models.Thread{}
+func GetThread(threadSlug string) (thread *models.Thread, status int) {
+	thread = &models.Thread{}
 	var created time.Time
 
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
@@ -285,13 +286,13 @@ func GetThread(threadSlug string) (thread models.Thread, status int) {
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
-			where lower(thread.slug) = lower($1)
+			where thread.slug = $1
 		`, threadSlug).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	}
 
 	if err != nil {
-		log.Println(err)
-		return models.Thread{}, 404
+		//log.Println(err)
+		return nil, 404
 	}
 
 	thread.Created = (*strfmt.DateTime)(&created)
@@ -299,8 +300,8 @@ func GetThread(threadSlug string) (thread models.Thread, status int) {
 	return thread, 200
 }
 
-func ModifyThread(threadUpdate models.ThreadUpdate, threadSlug string) (thread models.Thread, status int) {
-	thread = models.Thread{}
+func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread *models.Thread, status int) {
+	thread = &models.Thread{}
 	var created time.Time
 
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
@@ -333,8 +334,8 @@ func ModifyThread(threadUpdate models.ThreadUpdate, threadSlug string) (thread m
 	}
 
 	if err != nil {
-		log.Println(err)
-		return models.Thread{}, 404
+		//log.Println(err)
+		return nil, 404
 	}
 
 	thread.Created = (*strfmt.DateTime)(&created)

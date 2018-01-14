@@ -11,7 +11,7 @@ func InitDB(config pgx.ConnConfig) {
 	var err error
 	conn, err = pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     config,
-		MaxConnections: 100,
+		MaxConnections: 50,
 	})
 
 	if err != nil {

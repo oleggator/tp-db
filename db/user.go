@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	"log"
+	//"log"
 )
 
-func CreateUser(profile models.User) (users []models.User, ok bool) {
-	ct, err := conn.Exec(`
+func CreateUser(profile *models.User) (users []models.User, ok bool) {
+	ct, _ := conn.Exec(`
            insert into "User" (about, email, fullname, nickname)
            values ($1, $2::text, $3, $4::text);`,
 		profile.About, profile.Email, profile.Fullname, profile.Nickname,
 	)
 
-	if nil != err {
-		log.Println("CreateUser:", err)
-	}
+	//if nil != err {
+	//	log.Println("CreateUser:", err)
+	//}
 
 	if ct.RowsAffected() > 0 {
 		return nil, true
@@ -40,28 +40,28 @@ func CreateUser(profile models.User) (users []models.User, ok bool) {
 	return users, false
 }
 
-func GetUser(nickname string) (user models.User, ok bool) {
-	user = models.User{}
+func GetUser(nickname string) (user *models.User, ok bool) {
+	user = &models.User{}
 	err := conn.QueryRow(
 		`select about, email, fullname, nickname from "User"
-        where lower(nickname)=lower($1::text);`,
+        where nickname=$1`,
 		nickname,
 	).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
 
 	return user, err == nil
 }
 
-func UpdateUser(srcUser models.User) (user models.User, status int) {
-	user = models.User{Nickname: srcUser.Nickname}
+func UpdateUser(srcUser *models.User) (user *models.User, status int) {
+	user = &models.User{Nickname: srcUser.Nickname}
 	var id int32
 	err := conn.QueryRow(
 		`select id, about, email, fullname from "User"
-        where lower(nickname)=lower($1::text);`,
+        where nickname=$1`,
 		srcUser.Nickname,
 	).Scan(&id, &user.About, &user.Email, &user.Fullname)
 
 	if err != nil {
-		return models.User{}, 404
+		return nil, 404
 	}
 
 	if srcUser.About == "" && srcUser.Email == "" && srcUser.Fullname == "" {
@@ -83,7 +83,7 @@ func UpdateUser(srcUser models.User) (user models.User, status int) {
 	)
 
 	if ct.RowsAffected() == 0 {
-		return models.User{}, 409
+		return nil, 409
 	}
 
 	conn.QueryRow(
@@ -97,10 +97,10 @@ func UpdateUser(srcUser models.User) (user models.User, status int) {
 
 func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (users []models.User, status int) {
 	var forumId int32
-	err := conn.QueryRow(`select id from forum where lower(slug)=lower($1::text);`, slug).Scan(&forumId)
+	err := conn.QueryRow(`select id from forum where slug=$1`, slug).Scan(&forumId)
 
 	if err != nil {
-		log.Println(err)
+		//log.Println(err)
 		return nil, 404
 	}
 
@@ -167,9 +167,9 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 		rows, err = conn.Query(queryString, forumId)
 	}
 
-	if err != nil {
-		log.Println("GetForumUsers", err)
-	}
+	//if err != nil {
+	//	log.Println("GetForumUsers", err)
+	//}
 
 	users = make([]models.User, 0)
 	for rows.Next() {

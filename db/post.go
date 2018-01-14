@@ -170,8 +170,8 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	return srcPosts, 201
 }
 
-func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (postInfo models.PostFull, status int) {
-	postInfo = models.PostFull{}
+func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (postInfo *models.PostFull, status int) {
+	postInfo = &models.PostFull{}
 
 	post := models.Post{}
 	postInfo.Post = &post
@@ -193,7 +193,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 
 	if err != nil {
 		//log.Println("GetPost:", err)
-		return models.PostFull{}, 404
+		return nil, 404
 	}
 
 	post.Created = (*strfmt.DateTime)(&created)
@@ -210,7 +210,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 
 		if err != nil {
 			//log.Println("GetPost:", err)
-			return models.PostFull{}, 404
+			return nil, 404
 		}
 
 		conn.QueryRow(` select count(*) from thread where forum=$1 `, forumId).Scan(&forum.Threads)
@@ -232,7 +232,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 
 		if err != nil {
 			//log.Println("GetPost:", err)
-			return models.PostFull{}, 404
+			return nil, 404
 		}
 
 		thread.Created = (*strfmt.DateTime)(&created)
@@ -249,15 +249,15 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 
 		if err != nil {
 			//log.Println("GetPost:", err)
-			return models.PostFull{}, 404
+			return nil, 404
 		}
 	}
 
 	return postInfo, 200
 }
 
-func ModifyPost(postUpdate models.PostUpdate, postId int64) (post models.Post, status int) {
-	post = models.Post{}
+func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post, status int) {
+	post = &models.Post{}
 	post.ID = postId
 
 	var created time.Time
@@ -272,7 +272,7 @@ func ModifyPost(postUpdate models.PostUpdate, postId int64) (post models.Post, s
 
 	if err != nil {
 		//log.Println("ModifyPost:", err)
-		return models.Post{}, 404
+		return nil, 404
 	}
 
 	post.Created = (*strfmt.DateTime)(&created)
