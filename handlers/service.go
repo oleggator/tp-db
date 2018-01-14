@@ -1,24 +1,24 @@
 package handlers
 
 import (
-	"github.com/kataras/iris"
+	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
+	"github.com/valyala/fasthttp"
 )
 
-func ServiceClearPost(ctx iris.Context) {
-	error := models.Error{Message: "Not implemented yet"}
-	json, _ := error.MarshalBinary()
-	ctx.Write(json)
+func ServiceClearPost(ctx *fasthttp.RequestCtx) {
+	db.Clear()
 }
 
-func ServiceStatusGet(ctx iris.Context) {
+func ServiceStatusGet(ctx *fasthttp.RequestCtx) {
 	status := models.Status{
-		Forum:  1,
-		Post:   1,
-		Thread: 1,
-		User:   1,
+		Forum:  db.CountForums(),
+		Post:   db.CountPosts(),
+		Thread: db.CountThreads(),
+		User:   db.CountUsers(),
 	}
 
+	ctx.SetContentType("application/json")
 	json, _ := status.MarshalBinary()
 	ctx.Write(json)
 }
