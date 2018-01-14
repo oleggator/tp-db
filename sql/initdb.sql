@@ -11,10 +11,13 @@ CREATE TABLE IF NOT EXISTS "User" (
 CREATE UNIQUE INDEX user_nickname_index
   ON "User" (nickname);
 
+CREATE UNIQUE INDEX user_nickname_email_index
+  ON "User" (lower(nickname), lower(email));
+
 CREATE TABLE IF NOT EXISTS Forum (
   id        BIGSERIAL NOT NULL    PRIMARY KEY,
   slug      CITEXT    NOT NULL    UNIQUE,
-  title     TEXT      NOT NULL    UNIQUE,
+  title     TEXT      NOT NULL    ,
   moderator BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE
 );
 
