@@ -5,18 +5,17 @@ import (
 	"log"
 )
 
-func CreateForum(srcForum models.Forum) (forum models.Forum, status int) {
+func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
 	var userId int32
-	var nickname string
 	err := conn.QueryRow(
 		`select id, nickname from "User"
-        where lower(nickname)=lower($1::text);`,
+        where nickname=$1;`,
 		srcForum.User,
-	).Scan(&userId, &nickname)
+	).Scan(&userId, &srcForum.User)
 
 	if err != nil {
 		log.Println("CreateForum", err)
-		return models.Forum{}, 404
+		return nil, 404
 	}
 
 	ct, _ := conn.Exec(`
@@ -26,23 +25,20 @@ func CreateForum(srcForum models.Forum) (forum models.Forum, status int) {
 	)
 
 	if ct.RowsAffected() > 0 {
-		forum = srcForum
-		forum.User = nickname
-		return forum, 201
+		return srcForum, 201
 	}
 
 	conn.QueryRow(
 		`select slug, title from forum
 		where slug=$1;`,
 		srcForum.Slug,
-	).Scan(&forum.Slug, &forum.Title)
-	forum.User = nickname
+	).Scan(&srcForum.Slug, &srcForum.Title)
 
-	return forum, 409
+	return srcForum, 409
 }
 
-func GetForumDetails(slug string) (forum models.Forum, status int) {
-	forum = models.Forum{}
+func GetForumDetails(slug string) (forum *models.Forum, status int) {
+	forum = &models.Forum{}
 
 	var forumId int32
 	err := conn.QueryRow(`
