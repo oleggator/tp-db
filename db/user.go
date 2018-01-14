@@ -1,15 +1,22 @@
 package db
 
 import (
+	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
+	"log"
 )
 
 func CreateUser(profile models.User) (users []models.User, ok bool) {
-	ct, _ := conn.Exec(`
+	ct, err := conn.Exec(`
            insert into "User" (about, email, fullname, nickname)
            values ($1, $2::text, $3, $4::text);`,
 		profile.About, profile.Email, profile.Fullname, profile.Nickname,
 	)
+
+	if nil != err {
+		log.Println("CreateUser:", err)
+	}
 
 	if ct.RowsAffected() > 0 {
 		return nil, true
@@ -44,9 +51,9 @@ func GetUser(nickname string) (user models.User, ok bool) {
 	return user, err == nil
 }
 
-func UpdateUser(srcUser models.User) (status int) {
-	user := models.User{}
-	var id int
+func UpdateUser(srcUser models.User) (user models.User, status int) {
+	user = models.User{Nickname: srcUser.Nickname}
+	var id int32
 	err := conn.QueryRow(
 		`select id, about, email, fullname from "User"
         where lower(nickname)=lower($1::text);`,
@@ -54,47 +61,123 @@ func UpdateUser(srcUser models.User) (status int) {
 	).Scan(&id, &user.About, &user.Email, &user.Fullname)
 
 	if err != nil {
-		return 404
+		return models.User{}, 404
 	}
 
-	if user.About != srcUser.About && user.About != "" {
-		ct, _ := conn.Exec(
-			`update "User"
-			set about=$1
-			where id=$2;`,
-			srcUser.About, id,
-		)
-
-		if ct.RowsAffected() == 0 {
-			return 409
-		}
+	if srcUser.About == "" && srcUser.Email == "" && srcUser.Fullname == "" {
+		return user, 200
 	}
 
-	if user.Email != srcUser.Email && user.Email != "" {
-		ct, _ := conn.Exec(
-			`update "User"
-			set email=$1::text
-			where id=$2;`,
-			srcUser.Email, id,
-		)
+	ct, _ := conn.Exec(
+		`update "User" set
+			about=COALESCE(NULLIF($1, ''), about),
+			email=COALESCE(NULLIF($2::text, ''), email),
+			fullname=COALESCE(NULLIF($3, ''), fullname),
+			nickname=COALESCE(NULLIF($4::text, ''), nickname)
+		where id=$5;`,
+		srcUser.About,
+		srcUser.Email,
+		srcUser.Fullname,
+		srcUser.Nickname,
+		id,
+	)
 
-		if ct.RowsAffected() == 0 {
-			return 409
-		}
+	if ct.RowsAffected() == 0 {
+		return models.User{}, 409
 	}
 
-	if user.Fullname != srcUser.Fullname && user.Fullname != "" {
-		ct, _ := conn.Exec(
-			`update "User"
-			set fullname=$1
-			where id=$2;`,
-			srcUser.Fullname, id,
-		)
+	conn.QueryRow(
+		`select about, email, fullname from "User"
+        where id=$1;`,
+		id,
+	).Scan(&user.About, &user.Email, &user.Fullname)
 
-		if ct.RowsAffected() == 0 {
-			return 409
-		}
+	return user, 200
+}
+
+func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (users []models.User, status int) {
+	var forumId int32
+	err := conn.QueryRow(`select id from forum where lower(slug)=lower($1::text);`, slug).Scan(&forumId)
+
+	if err != nil {
+		log.Println(err)
+		return nil, 404
 	}
 
-	return 200
+	var sorting string
+	var compareString string
+	if desc {
+		sorting = "desc"
+		compareString = "<"
+	} else {
+		sorting = "asc"
+		compareString = ">"
+	}
+
+	var limitString string
+	if limit != 0 {
+		limitString = fmt.Sprintf("limit %d", limit)
+	} else {
+		limitString = ""
+	}
+
+	var rows *pgx.Rows
+	if sinceNickname != "" {
+		queryString := fmt.Sprintf(`
+			with users as (
+				select distinct author
+				from Thread
+				where forum=$1
+
+				union distinct
+
+				select distinct author
+				from Post
+				where forum=$1
+			)
+			select "User".about, "User".email, "User".fullname, "User".nickname
+			from users
+			join "User" on "User".id = users.author
+			where "User".nickname %s $2
+			order by lower("User".nickname) %s
+			%s
+		`, compareString, sorting, limitString)
+
+		rows, err = conn.Query(queryString, forumId, sinceNickname)
+	} else {
+		queryString := fmt.Sprintf(`
+			with users as (
+				select distinct author
+				from Thread
+				where forum=$1
+
+				union distinct
+
+				select distinct author
+				from Post
+				where forum=$1
+			)
+			select "User".about, "User".email, "User".fullname, "User".nickname
+			from users
+			join "User" on "User".id = users.author
+			order by lower("User".nickname) %s
+			%s
+		`, sorting, limitString)
+
+		rows, err = conn.Query(queryString, forumId)
+	}
+
+	if err != nil {
+		log.Println("GetForumUsers", err)
+	}
+
+	users = make([]models.User, 0)
+	for rows.Next() {
+		user := models.User{}
+		rows.Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
+
+		users = append(users, user)
+	}
+
+	return users, 200
 }
