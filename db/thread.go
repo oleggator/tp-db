@@ -214,7 +214,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, status int) {
 	var userId int32
 	if err := conn.QueryRow(`select id from "User" where nickname=$1`, vote.Nickname).Scan(&userId); err != nil {
-		log.Println(err)
+		log.Println("VoteThread: getUser:", err)
 		return models.Thread{}, 404
 	}
 
@@ -224,7 +224,7 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, thread.slug, thread.title
+			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
@@ -232,7 +232,7 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 		`, threadId).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title)
 	} else {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, thread.slug, thread.title
+			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
@@ -241,7 +241,7 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 	}
 
 	if err != nil {
-		log.Println(err)
+		log.Println("VoteThread: getThreadId:", err)
 		return models.Thread{}, 404
 	}
 
@@ -249,7 +249,7 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 
 	var delta int
 	if err := conn.QueryRow(`select vote_thread($1, $2, $3)`, thread.ID, userId, vote.Voice == 1).Scan(&delta); err != nil {
-		log.Println(err)
+		log.Println("VoteThread: vote_thread:", err)
 	}
 
 	queryString := fmt.Sprintf(`
@@ -260,7 +260,7 @@ func VoteThread(vote models.Vote, threadSlug string) (thread models.Thread, stat
 	`, delta)
 
 	if err := conn.QueryRow(queryString, thread.ID).Scan(&thread.Votes); err != nil {
-		log.Println(err)
+		log.Println("VoteThread:", err)
 	}
 
 	return thread, 200
