@@ -232,7 +232,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		threadId = int32(threadId64)
 
 		err = conn.QueryRow(`
-            select thread.slug from Thread
+            select coalesce(thread.slug, '') from Thread
             where thread.id = $1
         `, threadId).Scan(&threadSlug)
 	} else {
