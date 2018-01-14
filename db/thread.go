@@ -16,8 +16,7 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		forumId   int32
 	)
 	err := conn.QueryRow(
-		`select id, slug from forum
-        where slug=$1`,
+		`get_forum_id_slug`,
 		srcThread.Forum,
 	).Scan(&forumId, &forumSlug)
 
@@ -29,8 +28,7 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	var userId int32
 	var nickname string
 	err = conn.QueryRow(
-		`select id, nickname from "User"
-		where nickname=$1`,
+		`get_user_nick`,
 		srcThread.Author,
 	).Scan(&userId, &nickname)
 

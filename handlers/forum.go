@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
 	"github.com/valyala/fasthttp"
 )
 
 func ForumCreatePost(ctx *fasthttp.RequestCtx) {
+	fmt.Println("ForumCreatePost")
 	if ctx.UserValue("slug").(string) != "create" {
 		ctx.SetStatusCode(405)
 		return
@@ -45,6 +48,8 @@ func ForumCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
+	fmt.Println("ForumSlugCreatePost")
+
 	body := ctx.PostBody()
 
 	srcThread := models.Thread{}
@@ -80,6 +85,8 @@ func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugDetailsGet(ctx *fasthttp.RequestCtx) {
+	fmt.Println("ForumSlugDetailsGet")
+
 	ctx.SetContentType("application/json")
 
 	switch user, status := db.GetForumDetails(ctx.UserValue("slug").(string)); status {
@@ -102,23 +109,28 @@ func ForumSlugThreadsGet(ctx *fasthttp.RequestCtx) {
 	sinceString := string(ctx.QueryArgs().Peek("since"))
 	desc := string(ctx.QueryArgs().Peek("desc")) == "true"
 
+	fmt.Println("ForumSlugThreadsGet", ctx.QueryArgs().String(), slug)
+
 	ctx.SetContentType("application/json")
 
 	switch threads, status := db.GetThreads(slug, limit, sinceString, desc); status {
 	case 200:
-		body := []byte("[")
-		for i, thread := range threads {
-			json, _ := thread.MarshalBinary()
-			body = append(body, json...)
-
-			if i != len(threads)-1 {
-				body = append(body, byte(','))
-			}
-		}
-		body = append(body, byte(']'))
+		fmt.Println(threads)
 
 		ctx.SetStatusCode(200)
-		ctx.Write(body)
+		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
+			w.Write([]byte("["))
+			for i, thread := range threads {
+				json, _ := thread.MarshalBinary()
+				w.Write(json)
+
+				if i != len(threads)-1 {
+					w.Write([]byte(","))
+				}
+			}
+			w.Write([]byte("]"))
+			w.Flush()
+		})
 
 	case 404:
 		json, _ := (&models.Error{Message: "Can't find forum\n"}).MarshalBinary()
@@ -129,6 +141,8 @@ func ForumSlugThreadsGet(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugUsersGet(ctx *fasthttp.RequestCtx) {
+	fmt.Println("ForumSlugUsersGet")
+
 	slug := ctx.UserValue("slug").(string)
 	limit := int32(ctx.QueryArgs().GetUintOrZero("limit"))
 	sinceString := string(ctx.QueryArgs().Peek("since"))
@@ -138,19 +152,21 @@ func ForumSlugUsersGet(ctx *fasthttp.RequestCtx) {
 
 	switch users, status := db.GetForumUsers(slug, limit, sinceString, desc); status {
 	case 200:
-		body := []byte("[")
-		for i, user := range users {
-			json, _ := user.MarshalBinary()
-			body = append(body, json...)
-
-			if i != len(users)-1 {
-				body = append(body, byte(','))
-			}
-		}
-		body = append(body, byte(']'))
-
 		ctx.SetStatusCode(200)
-		ctx.Write(body)
+		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
+			w.Write([]byte("["))
+			for i, user := range users {
+				json, _ := user.MarshalBinary()
+				w.Write(json)
+
+				if i != len(users)-1 {
+					w.Write([]byte(","))
+				}
+			}
+			w.Write([]byte("]"))
+			w.Flush()
+		})
+
 	case 404:
 		json, _ := (&models.Error{Message: "Can't find forum\n"}).MarshalBinary()
 

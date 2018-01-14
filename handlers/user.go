@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
 	"github.com/valyala/fasthttp"
 )
 
 func UserNicknameCreatePost(ctx *fasthttp.RequestCtx) {
+	fmt.Println("UserNicknameCreatePost")
+
 	body := ctx.PostBody()
 
 	srcUser := models.User{}
@@ -23,23 +27,25 @@ func UserNicknameCreatePost(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(201)
 		ctx.Write(json)
 	} else {
-		body := []byte("[")
-		for i, user := range users {
-			json, _ := user.MarshalBinary()
-			body = append(body, json...)
-
-			if i != len(users)-1 {
-				body = append(body, byte(','))
-			}
-		}
-		body = append(body, byte(']'))
-
 		ctx.SetStatusCode(409)
-		ctx.Write(body)
+		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
+			w.Write([]byte("["))
+			for i, user := range users {
+				json, _ := user.MarshalBinary()
+				w.Write(json)
+
+				if i != len(users)-1 {
+					w.Write([]byte(","))
+				}
+			}
+			w.Write([]byte("]"))
+			w.Flush()
+		})
 	}
 }
 
 func UserNicknameProfileGet(ctx *fasthttp.RequestCtx) {
+	fmt.Println("UserNicknameProfileGet")
 	user, ok := db.GetUser(ctx.UserValue("nickname").(string))
 
 	ctx.SetContentType("application/json")
@@ -59,6 +65,8 @@ func UserNicknameProfileGet(ctx *fasthttp.RequestCtx) {
 }
 
 func UserNicknameProfilePost(ctx *fasthttp.RequestCtx) {
+	fmt.Println("UserNicknameProfilePost")
+
 	body := ctx.PostBody()
 
 	srcUser := models.User{}

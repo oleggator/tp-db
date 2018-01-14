@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
 	"github.com/valyala/fasthttp"
@@ -9,6 +10,8 @@ import (
 )
 
 func PostIdDetailsGet(ctx *fasthttp.RequestCtx) {
+	fmt.Println("PostIdDetailsGet")
+
 	ctx.SetContentType("application/json")
 	postId, _ := strconv.ParseInt(ctx.UserValue("id").(string), 0, 32)
 
@@ -44,6 +47,8 @@ func PostIdDetailsGet(ctx *fasthttp.RequestCtx) {
 }
 
 func PostIdDetailsPost(ctx *fasthttp.RequestCtx) {
+	fmt.Println("PostIdDetailsPost")
+
 	postUpdate := models.PostUpdate{}
 	postUpdate.UnmarshalBinary(ctx.PostBody())
 

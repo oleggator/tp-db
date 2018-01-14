@@ -23,17 +23,9 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	if threadId64, parseErr := strconv.ParseInt(threadSlug, 0, 32); parseErr == nil {
 		threadId = int32(threadId64)
 
-		err = conn.QueryRow(`
-            select forum.id, forum.slug from Thread
-            join Forum on thread.forum = forum.id
-            where thread.id = $1
-        `, threadId).Scan(&forumId, &forumSlug)
+		err = conn.QueryRow(`thread_by_id`, threadId).Scan(&forumId, &forumSlug)
 	} else {
-		err = conn.QueryRow(`
-            select forum.id, forum.slug, thread.id from Thread
-            join Forum on thread.forum = forum.id
-            where thread.slug = $1
-        `, threadSlug).Scan(&forumId, &forumSlug, &threadId)
+		err = conn.QueryRow(`thread_by_slug`, threadSlug).Scan(&forumId, &forumSlug, &threadId)
 	}
 
 	if err != nil {
@@ -45,12 +37,11 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	}
 
 	postsIds := make([]int64, 0, len(srcPosts))
-	err = conn.QueryRow(` select array_agg(nextval('post_id_seq')::bigint) from generate_series(1,$1)`, len(srcPosts)).Scan(&postsIds)
+	err = conn.QueryRow(`get_ids`, len(srcPosts)).Scan(&postsIds)
 	//if err != nil {
 	//	log.Println("CreatePosts:", err)
 	//}
 
-	_, err = conn.Prepare("get_user", `select id from "User" where nickname=$1`)
 	//if err != nil {
 	//	log.Println("CreatePosts:", err)
 	//}
@@ -66,7 +57,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		)
 	}
 
-	err = batch.Send(context.Background(), nil)
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
 	//if err != nil {
 	//	log.Println("CreatePosts: batch send error:", err)
 	//}
@@ -91,7 +82,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		)
 	}
 
-	err = batch.Send(context.Background(), nil)
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
 	//if err != nil {
 	//	log.Println("CreatePosts: batch send error:", err)
 	//}
@@ -111,7 +102,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	for i, _ := range srcPosts {
 		if srcPosts[i].Parent != 0 {
 			batch.Queue(
-				`select parents from post where id = $1`,
+				`get_parents`,
 				[]interface{}{srcPosts[i].Parent},
 				[]pgtype.OID{pgtype.Int8OID},
 				[]int16{pgx.BinaryFormatCode},
@@ -119,7 +110,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		}
 	}
 
-	err = batch.Send(context.Background(), nil)
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
 	//if err != nil {
 	//	log.Println("CreatePosts: batch send error:", err)
 	//}
@@ -137,10 +128,6 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	}
 	batch.Close()
 
-	_, err = conn.Prepare("insert_post", `
-        insert into Post (author, message, "thread", isEdited, forum, created, parent, parents, root_parent, id)
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `)
 	//if err != nil {
 	//	log.Println("CreatePosts:", err)
 	//}
@@ -161,7 +148,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		)
 	}
 
-	err = batch.Send(context.Background(), nil)
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
 	//if err != nil {
 	//	log.Println("CreatePosts: batch send error:", err)
 	//}
