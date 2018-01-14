@@ -5,11 +5,14 @@ import (
 	"log"
 )
 
-var conn *pgx.Conn
+var conn *pgx.ConnPool
 
 func InitDB(config pgx.ConnConfig) {
 	var err error
-	conn, err = pgx.Connect(config)
+	conn, err = pgx.NewConnPool(pgx.ConnPoolConfig{
+		ConnConfig:     config,
+		MaxConnections: 100,
+	})
 
 	if err != nil {
 		log.Panic(err)
