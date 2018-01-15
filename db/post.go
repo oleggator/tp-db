@@ -269,9 +269,7 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 	}
 
 	conn.Exec(`
-        update post
-        set message=$1, isEdited=TRUE
-        where id=$2
+        update post set message=$1, isEdited=TRUE where id=$2
     `, postUpdate.Message, postId)
 
 	post.Message = postUpdate.Message
@@ -335,7 +333,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
             join "User" on "User".id = post.author
             join forum on forum.id = post.forum
             join thread on thread.id = post."thread"
-            where post.thread = $1 %s
+            where post."thread" = $1 %s
             order by parents %s
             %s
         `, compareString, sorting, limitString)
@@ -428,7 +426,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
             join "User" on "User".id = post.author
             join forum on forum.id = post.forum
             join thread on thread.id = post."thread"
-            where post.thread = $1 %s
+            where post."thread" = $1 %s
             order by post.id %s
             %s
         `, compareString, sorting, limitString)

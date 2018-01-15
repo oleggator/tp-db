@@ -12,8 +12,11 @@ CREATE TABLE IF NOT EXISTS "User" (
 CREATE UNIQUE INDEX user_nickname_index
   ON "User" (nickname);
 
+CREATE UNIQUE INDEX user_lower_nickname_index
+  ON "User" (lower(nickname));
+
 CREATE UNIQUE INDEX user_nickname_email_index
-  ON "User" (lower(nickname), lower(email));
+  ON "User" (nickname, email);
 
 CREATE TABLE IF NOT EXISTS Forum (
   id        BIGSERIAL NOT NULL    PRIMARY KEY,
@@ -35,9 +38,6 @@ CREATE TABLE IF NOT EXISTS Thread (
   title   TEXT                     NOT NULL,
   votes   BIGINT                            DEFAULT 0
 );
-
--- CREATE UNIQUE INDEX thread_id_index
---   ON thread (id);
 
 CREATE UNIQUE INDEX thread_slug_index
   ON thread (slug);
@@ -78,10 +78,23 @@ CREATE TABLE IF NOT EXISTS Post (
   "thread" BIGINT REFERENCES Thread (id) ON DELETE CASCADE
 );
 
--- CREATE UNIQUE INDEX post_id_index
---   ON post (id);
+CREATE INDEX post_forum_index
+  ON post (forum);
 
--- CREATE UNIQUE INDEX post_forum_index
---   ON post (forum);
+CREATE INDEX post_author_index
+  ON post (author);
 
+CREATE INDEX post_thread_index
+  ON post ("thread");
 
+CREATE INDEX post_thread_parents_index
+  ON post ("thread", parents);
+
+CREATE INDEX post_parents_index
+  ON post (parents);
+
+CREATE INDEX post_root_parent_index
+  ON post (root_parent);
+
+CREATE INDEX post_thread_parent_index
+  ON post ("thread", parent);

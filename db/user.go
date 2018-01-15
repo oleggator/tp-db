@@ -25,8 +25,8 @@ func CreateUser(profile *models.User) (users []models.User, ok bool) {
 	users = make([]models.User, 0)
 	rows, _ := conn.Query(
 		`select about, email, fullname, nickname from "User"
-        where lower(nickname)=lower($1::text) or lower(email)=lower($2::text);`,
-		profile.Nickname, profile.Email,
+        where nickname=$1 or email=$2`,
+		profile.Nickname, string(profile.Email),
 	)
 	defer rows.Close()
 

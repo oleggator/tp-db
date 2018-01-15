@@ -88,3 +88,7 @@ func InitDB(config pgx.ConnConfig) {
 		`select id, slug from forum
         where slug=$1`)
 }
+
+func Close() {
+	conn.Close()
+}

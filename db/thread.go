@@ -233,7 +233,7 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			from thread
 			join "User" on "User".id = thread.author
 			join forum on forum.id = thread.forum
-			where lower(thread.slug) = lower($1)
+			where thread.slug = $1
 		`, threadSlug).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title)
 	}
 
@@ -320,7 +320,7 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 		err = conn.QueryRow(`
 			with updatedThread as (
 				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
-				where lower(thread.slug) = lower($3)
+				where thread.slug = $3
 				returning id, author, created, forum, slug, votes, title, message
 			)
 			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, updatedThread.slug, updatedThread.votes, updatedThread.title, updatedThread.message

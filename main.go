@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/handlers"
+	"log"
 
 	"github.com/buaazp/fasthttprouter"
 	"github.com/valyala/fasthttp"
@@ -17,6 +18,8 @@ func main() {
 		User:     "docker",
 		Password: "docker",
 	})
+
+	defer db.Close()
 
 	router := fasthttprouter.New()
 
@@ -42,5 +45,8 @@ func main() {
 	router.GET("/api/user/:nickname/profile", handlers.UserNicknameProfileGet)
 	router.POST("/api/user/:nickname/profile", handlers.UserNicknameProfilePost)
 
-	fasthttp.ListenAndServe(":5000", router.Handler)
+	err := fasthttp.ListenAndServe(":5000", router.Handler)
+	if err != nil {
+		log.Println(err)
+	}
 }
