@@ -1,3 +1,4 @@
+SET auto_explain.log_nested_statements = ON;
 CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE TABLE IF NOT EXISTS "User" (
@@ -35,14 +36,24 @@ CREATE TABLE IF NOT EXISTS Thread (
   votes   BIGINT                            DEFAULT 0
 );
 
-CREATE UNIQUE INDEX thread_id_index
-  ON thread (id);
+-- CREATE UNIQUE INDEX thread_id_index
+--   ON thread (id);
 
 CREATE UNIQUE INDEX thread_slug_index
   ON thread (slug);
+
+CREATE INDEX thread_author_index
+  ON thread (author);
+
+CREATE INDEX thread_forum_created_index
+  ON thread (created, forum);
+
+CREATE INDEX thread_forum_index
+  ON thread (forum);
 --
--- CREATE UNIQUE INDEX thread_forum_index
---   ON thread (forum);
+-- CREATE INDEX thread_created_index
+--   ON thread (created);
+
 
 CREATE TABLE IF NOT EXISTS Vote (
   id     BIGSERIAL NOT NULL    PRIMARY KEY,
@@ -51,7 +62,7 @@ CREATE TABLE IF NOT EXISTS Vote (
   voice  BOOLEAN   NOT NULL
 );
 
-CREATE UNIQUE INDEX vote_thread_author_index
+CREATE INDEX vote_thread_author_index
   ON vote (thread, author);
 
 CREATE TABLE IF NOT EXISTS Post (
@@ -67,8 +78,8 @@ CREATE TABLE IF NOT EXISTS Post (
   "thread" BIGINT REFERENCES Thread (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX post_id_index
-  ON post (id);
+-- CREATE UNIQUE INDEX post_id_index
+--   ON post (id);
 
 -- CREATE UNIQUE INDEX post_forum_index
 --   ON post (forum);
