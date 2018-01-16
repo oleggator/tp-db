@@ -10,7 +10,7 @@ ADD ./ $GOPATH/src/github.com/oleggator/tp-db
 #
 # Установка postgresql
 #
-ENV PGVER 9.6
+ENV PGVER 10
 RUN apt-get -y update && apt-get install -y sudo postgresql-$PGVER postgresql-contrib-$PGVER --no-install-recommends
 
 # Run the rest of the commands as the ``postgres`` user created by the ``postgres-$PGVER`` package when it was ``apt-get installed``
