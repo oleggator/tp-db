@@ -12,7 +12,8 @@ import (
 
 func main() {
 	db.InitDB(pgx.ConnConfig{
-		Host:     "localhost",
+		//Host:     "localhost",
+		Host:     "/var/run/postgresql/",
 		Port:     5432,
 		Database: "docker",
 		User:     "docker",

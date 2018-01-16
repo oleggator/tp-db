@@ -30,9 +30,17 @@ RUN /etc/init.d/postgresql start &&\
 # Adjust PostgreSQL configuration so that remote connections to the
 # database are possible.
 RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/$PGVER/main/pg_hba.conf
-
-# And add ``listen_addresses`` to ``/etc/postgresql/$PGVER/main/postgresql.conf``
 RUN echo "listen_addresses='*'" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "unix_socket_directories = '/var/run/postgresql/'" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "synchronous_commit = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "logging_collector = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "shared_buffers = 512MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "effective_cache_size = 1024MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "max_prepared_transactions = 0" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "fsync = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "full_page_writes = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "autovacuum_naptime = 60" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "default_transaction_isolation = 'read uncommitted'" >> /etc/postgresql/$PGVER/main/postgresql.conf
 
 # Expose the PostgreSQL port
 EXPOSE 5432
@@ -49,6 +57,5 @@ EXPOSE 5000
 #
 # Запускаем PostgreSQL и сервер
 #
-# CMD service postgresql start && hello-server --scheme=http --port=5000 --host=0.0.0.0 --database=postgres://docker:docker@localhost/docker
 CMD service postgresql start &&\
-    go install github.com/oleggator/tp-db && tp-db
+    go install -ldflags '-s' github.com/oleggator/tp-db && tp-db
