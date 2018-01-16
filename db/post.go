@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
+	"log"
+
 	//"log"
 	"strconv"
 	"time"
@@ -36,43 +38,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		return nil, 201
 	}
 
-	postsIds := make([]int64, 0, len(srcPosts))
-	err = conn.QueryRow(`get_ids`, len(srcPosts)).Scan(&postsIds)
-	//if err != nil {
-	//	log.Println("CreatePosts:", err)
-	//}
-
-	//if err != nil {
-	//	log.Println("CreatePosts:", err)
-	//}
-
 	batch := conn.BeginBatch()
-	users := make([]int32, len(srcPosts))
-	for i, _ := range srcPosts {
-		batch.Queue(
-			`get_user`,
-			[]interface{}{srcPosts[i].Author},
-			nil,
-			[]int16{pgx.BinaryFormatCode},
-		)
-	}
-
-	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
-	//if err != nil {
-	//	log.Println("CreatePosts: batch send error:", err)
-	//}
-
-	for i, _ := range srcPosts {
-		err = batch.QueryRowResults().Scan(&users[i])
-		if err != nil {
-			//log.Println("CreatePosts: batch scan error:", err)
-			batch.Close()
-			return nil, 404
-		}
-	}
-	batch.Close()
-
-	batch = conn.BeginBatch()
 	for i, _ := range srcPosts {
 		batch.Queue(
 			`select check_parent($1, $2)`,
@@ -82,10 +48,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		)
 	}
 
-	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
-	//if err != nil {
-	//	log.Println("CreatePosts: batch send error:", err)
-	//}
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted, AccessMode: pgx.ReadOnly})
 
 	for _, _ = range srcPosts {
 		var status int
@@ -97,6 +60,9 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		}
 	}
 	batch.Close()
+
+	postsIds := make([]int64, 0, len(srcPosts))
+	err = conn.QueryRow(`get_ids`, len(srcPosts)).Scan(&postsIds)
 
 	batch = conn.BeginBatch()
 	for i, _ := range srcPosts {
@@ -110,30 +76,19 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		}
 	}
 
-	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
-	//if err != nil {
-	//	log.Println("CreatePosts: batch send error:", err)
-	//}
+	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted, AccessMode: pgx.ReadOnly})
 
 	parents := make([][]int64, len(srcPosts))
 	for i, _ := range srcPosts {
 		if srcPosts[i].Parent != 0 {
 			err = batch.QueryRowResults().Scan(&parents[i])
-			//if err != nil {
-			//	log.Println("CreatePosts: batch scan error:", err)
-			//}
 		}
 
 		parents[i] = append(parents[i], postsIds[i])
 	}
 	batch.Close()
 
-	//if err != nil {
-	//	log.Println("CreatePosts:", err)
-	//}
-
 	batch = conn.BeginBatch()
-
 	for i, _ := range srcPosts {
 		srcPosts[i].ID = postsIds[i]
 		srcPosts[i].Thread = threadId
@@ -141,17 +96,22 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 
 		batch.Queue(
 			`insert_post`,
-			[]interface{}{users[i], srcPosts[i].Message, threadId, srcPosts[i].IsEdited, forumId,
+			[]interface{}{srcPosts[i].Author, srcPosts[i].Message, threadId, srcPosts[i].IsEdited, forumId,
 				srcPosts[i].Created, srcPosts[i].Parent, parents[i], parents[i][0], srcPosts[i].ID},
 			nil,
 			nil,
 		)
 	}
 
-	err = batch.Send(context.Background(), &pgx.TxOptions{IsoLevel: pgx.ReadUncommitted})
-	//if err != nil {
-	//	log.Println("CreatePosts: batch send error:", err)
-	//}
+	err = batch.Send(context.Background(), nil)
+
+	_, err = batch.ExecResults()
+	if err != nil {
+		log.Println("Batch:", err)
+		batch.Close()
+		return nil, 404
+	}
+
 	batch.Close()
 
 	return srcPosts, 201

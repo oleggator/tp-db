@@ -2,15 +2,12 @@ package handlers
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
 	"github.com/valyala/fasthttp"
 )
 
 func UserNicknameCreatePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("UserNicknameCreatePost")
-
 	body := ctx.PostBody()
 
 	srcUser := models.User{}
@@ -45,7 +42,6 @@ func UserNicknameCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func UserNicknameProfileGet(ctx *fasthttp.RequestCtx) {
-	fmt.Println("UserNicknameProfileGet")
 	user, ok := db.GetUser(ctx.UserValue("nickname").(string))
 
 	ctx.SetContentType("application/json")
@@ -65,8 +61,6 @@ func UserNicknameProfileGet(ctx *fasthttp.RequestCtx) {
 }
 
 func UserNicknameProfilePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("UserNicknameProfilePost")
-
 	body := ctx.PostBody()
 
 	srcUser := models.User{}

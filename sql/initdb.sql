@@ -67,7 +67,7 @@ CREATE INDEX vote_thread_author_index
 
 CREATE TABLE IF NOT EXISTS Post (
   id       BIGSERIAL                NOT NULL    PRIMARY KEY,
-  author   BIGINT REFERENCES "User" (id) ON DELETE CASCADE,
+  author   BIGINT NOT NULL REFERENCES "User" (id)  ON DELETE CASCADE,
   created  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   forum    BIGINT REFERENCES Forum (id) ON DELETE CASCADE,
   isEdited BOOLEAN                  NOT NULL,

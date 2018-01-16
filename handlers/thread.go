@@ -3,7 +3,6 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"github.com/go-openapi/strfmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
@@ -12,8 +11,6 @@ import (
 )
 
 func ThreadSlugOrIdCreatePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ThreadSlugOrIdCreatePost")
-
 	var srcPostsStrings []json.RawMessage
 	json.Unmarshal(ctx.PostBody(), &srcPostsStrings)
 
@@ -61,8 +58,6 @@ func ThreadSlugOrIdCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func ThreadSlugOrIdDetailsGet(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ThreadSlugOrIdDetailsGet")
-
 	ctx.SetContentType("application/json")
 
 	switch thread, status := db.GetThread(ctx.UserValue("slug_or_id").(string)); status {
@@ -80,8 +75,6 @@ func ThreadSlugOrIdDetailsGet(ctx *fasthttp.RequestCtx) {
 }
 
 func ThreadSlugOrIdDetailsPost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ThreadSlugOrIdDetailsPost")
-
 	threadUpdate := models.ThreadUpdate{}
 	threadUpdate.UnmarshalBinary(ctx.PostBody())
 
@@ -101,8 +94,6 @@ func ThreadSlugOrIdDetailsPost(ctx *fasthttp.RequestCtx) {
 }
 
 func ThreadSlugOrIdPostsGet(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ThreadSlugOrIdPostsGet")
-
 	ctx.SetContentType("application/json")
 
 	slug := ctx.UserValue("slug_or_id").(string)
@@ -136,8 +127,6 @@ func ThreadSlugOrIdPostsGet(ctx *fasthttp.RequestCtx) {
 }
 
 func ThreadSlugOrIdVotePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ThreadSlugOrIdVotePost")
-
 	vote := models.Vote{}
 	vote.UnmarshalBinary(ctx.PostBody())
 

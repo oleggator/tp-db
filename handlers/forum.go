@@ -9,7 +9,6 @@ import (
 )
 
 func ForumCreatePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ForumCreatePost")
 	if ctx.UserValue("slug").(string) != "create" {
 		ctx.SetStatusCode(405)
 		return
@@ -48,13 +47,12 @@ func ForumCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ForumSlugCreatePost")
-
 	body := ctx.PostBody()
 
 	srcThread := models.Thread{}
 	srcThread.UnmarshalBinary(body)
 	srcThread.Forum = ctx.UserValue("slug").(string)
+	fmt.Println("ForumSlugCreatePost", srcThread.Slug)
 
 	ctx.SetContentType("application/json")
 
@@ -85,8 +83,6 @@ func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugDetailsGet(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ForumSlugDetailsGet")
-
 	ctx.SetContentType("application/json")
 
 	switch user, status := db.GetForumDetails(ctx.UserValue("slug").(string)); status {
@@ -141,8 +137,6 @@ func ForumSlugThreadsGet(ctx *fasthttp.RequestCtx) {
 }
 
 func ForumSlugUsersGet(ctx *fasthttp.RequestCtx) {
-	fmt.Println("ForumSlugUsersGet")
-
 	slug := ctx.UserValue("slug").(string)
 	limit := int32(ctx.QueryArgs().GetUintOrZero("limit"))
 	sinceString := string(ctx.QueryArgs().Peek("since"))
