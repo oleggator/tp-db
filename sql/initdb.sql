@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS Forum (
 CREATE UNIQUE INDEX forum_slug_index
   ON forum (slug);
 
+CREATE UNIQUE INDEX forum_slug_id_index
+  ON forum (slug, id);
+
 CREATE TABLE IF NOT EXISTS Thread (
   id      BIGSERIAL                NOT NULL    PRIMARY KEY,
   author  BIGINT                   NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
@@ -62,7 +65,7 @@ CREATE TABLE IF NOT EXISTS Vote (
   voice  BOOLEAN   NOT NULL
 );
 
-CREATE INDEX vote_thread_author_index
+CREATE UNIQUE INDEX vote_thread_author_index
   ON vote (thread, author);
 
 CREATE TABLE IF NOT EXISTS Post (
@@ -81,17 +84,17 @@ CREATE TABLE IF NOT EXISTS Post (
 CREATE INDEX post_forum_index
   ON post (forum);
 
-CREATE INDEX post_author_index
-  ON post (author);
+-- CREATE INDEX post_author_index
+--   ON post (author);
 
-CREATE INDEX post_thread_index
-  ON post ("thread");
+-- CREATE INDEX post_thread_index
+--   ON post ("thread");
 
 CREATE INDEX post_thread_parents_index
   ON post ("thread", parents);
 
-CREATE INDEX post_parents_index
-  ON post (parents);
+-- CREATE INDEX post_parents_index
+--   ON post (parents);
 
 CREATE INDEX post_root_parent_index
   ON post (root_parent);
