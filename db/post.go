@@ -133,13 +133,13 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		userId  int32
 	)
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, forum.id, "User".id
+        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, forum.id, "User".id, coalesce(post.parent, 0)
         from Post
         join "User" on "User".id = post.author
         join forum on forum.id = post.forum
         join thread on thread.id = post."thread"
         where post.id = $1
-    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId)
+    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId, &post.Parent)
 
 	if err != nil {
 		//log.Println("GetPost:", err)
@@ -212,13 +212,13 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 
 	var created time.Time
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id
+        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
         from Post
         join "User" on "User".id = post.author
         join forum on forum.id = post.forum
         join thread on thread.id = post."thread"
         where post.id = $1
-    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread)
+    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &post.Parent)
 
 	if err != nil {
 		//log.Println("ModifyPost:", err)
@@ -342,7 +342,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		}
 
 		query := fmt.Sprintf(`
-            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, post.parent
+            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
             from Post
             join "User" on "User".id = post.author
             join forum on forum.id = post.forum

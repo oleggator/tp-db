@@ -171,7 +171,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 		since, _ := time.Parse(time.RFC3339, sinceString)
 
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1 and created %s $2
@@ -183,7 +183,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 	} else {
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1
@@ -198,7 +198,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 		var created time.Time
 		var slug *string
-		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug)
+		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug, &thread.Votes)
 
 		if slug != nil {
 			thread.Slug = *slug
