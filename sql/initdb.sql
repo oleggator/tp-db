@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS "User" (
   nickname CITEXT    NOT NULL    UNIQUE
 );
 
-CREATE UNIQUE INDEX user_nickname_index
-  ON "User" (nickname);
-
-CREATE UNIQUE INDEX user_lower_nickname_index
-  ON "User" (lower(nickname));
+-- CREATE UNIQUE INDEX user_nickname_index
+--   ON "User" (nickname);
+--
+-- CREATE UNIQUE INDEX user_lower_nickname_index
+--   ON "User" (lower(nickname));
 
 CREATE UNIQUE INDEX user_nickname_email_index
   ON "User" (nickname, email);
@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS Forum (
   moderator BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX forum_slug_index
-  ON forum (slug);
+-- CREATE UNIQUE INDEX forum_slug_index
+--   ON forum (slug);
 
 CREATE UNIQUE INDEX forum_slug_id_index
   ON forum (slug, id);
@@ -49,7 +49,7 @@ CREATE INDEX thread_author_index
   ON thread (author);
 
 CREATE INDEX thread_forum_created_index
-  ON thread (created, forum);
+  ON thread (forum, created);
 
 CREATE INDEX thread_forum_index
   ON thread (forum);
@@ -62,7 +62,10 @@ CREATE TABLE IF NOT EXISTS Vote (
   id     BIGSERIAL NOT NULL    PRIMARY KEY,
   author BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
   thread BIGINT    NOT NULL    REFERENCES Thread (id) ON DELETE CASCADE,
-  voice  BOOLEAN   NOT NULL
+  voice  INTEGER,
+  prevVoice INTEGER DEFAULT 0,
+  CONSTRAINT unique_author_and_thread UNIQUE (author, thread)
+
 );
 
 CREATE UNIQUE INDEX vote_thread_author_index

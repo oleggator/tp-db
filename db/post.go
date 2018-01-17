@@ -7,9 +7,7 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
-	"log"
 
-	//"log"
 	"strconv"
 	"time"
 )
@@ -54,7 +52,6 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		var status int
 		err = batch.QueryRowResults().Scan(&status)
 		if err != nil || status != 201 {
-			//log.Println("CreatePosts: batch scan error:", err)
 			batch.Close()
 			return nil, 409
 		}
@@ -88,7 +85,8 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	}
 	batch.Close()
 
-	batch = conn.BeginBatch()
+	tx, _ := conn.Begin()
+	batch = tx.BeginBatch()
 	for i, _ := range srcPosts {
 		srcPosts[i].ID = postsIds[i]
 		srcPosts[i].Thread = threadId
@@ -107,12 +105,13 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 
 	_, err = batch.ExecResults()
 	if err != nil {
-		log.Println("Batch:", err)
 		batch.Close()
+		tx.Rollback()
 		return nil, 404
 	}
 
 	batch.Close()
+	tx.Commit()
 
 	return srcPosts, 201
 }
@@ -130,16 +129,15 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		userId  int32
 	)
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, forum.id, "User".id
+        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, forum.id, "User".id, coalesce(post.parent, 0)
         from Post
         join "User" on "User".id = post.author
         join forum on forum.id = post.forum
         join thread on thread.id = post."thread"
         where post.id = $1
-    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId)
+    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId, &post.Parent)
 
 	if err != nil {
-		//log.Println("GetPost:", err)
 		return nil, 404
 	}
 
@@ -156,7 +154,6 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, forumId).Scan(&forum.Slug, &forum.Title, &forum.User)
 
 		if err != nil {
-			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 
@@ -178,7 +175,6 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, post.Thread).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 
 		if err != nil {
-			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 
@@ -195,7 +191,6 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, userId).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
 
 		if err != nil {
-			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 	}
@@ -209,16 +204,15 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 
 	var created time.Time
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id
+        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
         from Post
         join "User" on "User".id = post.author
         join forum on forum.id = post.forum
         join thread on thread.id = post."thread"
         where post.id = $1
-    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread)
+    `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &post.Parent)
 
 	if err != nil {
-		//log.Println("ModifyPost:", err)
 		return nil, 404
 	}
 
@@ -228,12 +222,19 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 		return post, 200
 	}
 
-	conn.Exec(`
+	tx, _ := conn.Begin()
+	_, err = tx.Exec(`
         update post set message=$1, isEdited=TRUE where id=$2
     `, postUpdate.Message, postId)
 
 	post.Message = postUpdate.Message
 	post.IsEdited = true
+
+	if err != nil {
+		tx.Rollback()
+		return nil, 404
+	}
+	tx.Commit()
 
 	return post, 200
 }
@@ -259,7 +260,6 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 	}
 
 	if err != nil {
-		//log.Println("GetPosts:", err)
 		return nil, 404
 	}
 
@@ -300,7 +300,6 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -332,7 +331,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		}
 
 		query := fmt.Sprintf(`
-            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, post.parent
+            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
             from Post
             join "User" on "User".id = post.author
             join forum on forum.id = post.forum
@@ -349,7 +348,6 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -393,7 +391,6 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
-			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 

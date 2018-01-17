@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/oleggator/tp-db/db"
 	"github.com/oleggator/tp-db/models"
 	"github.com/valyala/fasthttp"
@@ -52,7 +51,6 @@ func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
 	srcThread := models.Thread{}
 	srcThread.UnmarshalBinary(body)
 	srcThread.Forum = ctx.UserValue("slug").(string)
-	fmt.Println("ForumSlugCreatePost", srcThread.Slug)
 
 	ctx.SetContentType("application/json")
 
@@ -105,14 +103,10 @@ func ForumSlugThreadsGet(ctx *fasthttp.RequestCtx) {
 	sinceString := string(ctx.QueryArgs().Peek("since"))
 	desc := string(ctx.QueryArgs().Peek("desc")) == "true"
 
-	fmt.Println("ForumSlugThreadsGet", ctx.QueryArgs().String(), slug)
-
 	ctx.SetContentType("application/json")
 
 	switch threads, status := db.GetThreads(slug, limit, sinceString, desc); status {
 	case 200:
-		fmt.Println(threads)
-
 		ctx.SetStatusCode(200)
 		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
 			w.Write([]byte("["))

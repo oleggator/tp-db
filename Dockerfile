@@ -36,13 +36,13 @@ RUN echo "local all postgres peer\nlocal all docker md5" >> /etc/postgresql/$PGV
 RUN echo "unix_socket_directories = '/var/run/postgresql/'" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "synchronous_commit = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "logging_collector = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "shared_buffers = 512MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "effective_cache_size = 1024MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "shared_buffers = 128MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
+RUN echo "effective_cache_size = 256MB" >> /etc/postgresql/$PGVER/main/postgresql.conf
 #RUN echo "max_prepared_transactions = 0" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "fsync = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "full_page_writes = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "autovacuum_naptime = 60" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "default_transaction_isolation = 'read uncommitted'" >> /etc/postgresql/$PGVER/main/postgresql.conf
+#RUN echo "autovacuum_naptime = 60" >> /etc/postgresql/$PGVER/main/postgresql.conf
+#RUN echo "default_transaction_isolation = 'read uncommitted'" >> /etc/postgresql/$PGVER/main/postgresql.conf
 
 # Expose the PostgreSQL port
 #EXPOSE 5432

@@ -5,7 +5,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	//"log"
 	"strconv"
 	"time"
 )
@@ -21,7 +20,6 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	).Scan(&forumId, &forumSlug)
 
 	if err != nil {
-		//log.Println("CreateThread:", err)
 		return nil, 404
 	}
 
@@ -33,7 +31,6 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	).Scan(&userId, &nickname)
 
 	if err != nil {
-		//log.Println("CreateThread:", err)
 		return nil, 404
 	}
 
@@ -60,19 +57,21 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	)
 	existingThread.Created = (*strfmt.DateTime)(&created)
 
+	tx, _ := conn.Begin()
+
 	// Thread не существует
 	if err != nil {
 		var threadId int32
 		if srcThread.Created == nil {
 			if srcThread.Slug != "" {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, forum, message, title, slug)
 					values ($1, $2, $3, $4, $5)
 					returning id;`,
 					userId, forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
 				).Scan(&threadId)
 			} else {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, forum, message, title)
 					values ($1, $2, $3, $4)
 					returning id;`,
@@ -83,14 +82,14 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		} else {
 
 			if srcThread.Slug != "" {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, created, forum, message, title, slug)
 					values ($1, $2, $3, $4, $5, $6)
 					returning id;`,
 					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
 				).Scan(&threadId)
 			} else {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, created, forum, message, title)
 					values ($1, $2, $3, $4, $5)
 					returning id;`,
@@ -101,12 +100,14 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		}
 
 		if err == nil {
+			tx.Commit()
 			srcThread.Forum = forumSlug
 			srcThread.Author = nickname
 			srcThread.ID = threadId
 
 			return srcThread, 201
 		}
+		tx.Rollback()
 	}
 
 	err = conn.QueryRow(
@@ -115,16 +116,11 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		existingForumId,
 	).Scan(&existingThread.Forum)
 
-	//log.Println(err)
-
 	err = conn.QueryRow(
 		`select nickname from "User"
 		where id=$1;`,
 		authorId,
 	).Scan(&existingThread.Author)
-	//if err != nil {
-	//	log.Println("CreateThread:", err)
-	//}
 
 	return &existingThread, 409
 }
@@ -167,7 +163,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 		since, _ := time.Parse(time.RFC3339, sinceString)
 
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1 and created %s $2
@@ -179,7 +175,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 	} else {
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1
@@ -194,7 +190,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 		var created time.Time
 		var slug *string
-		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug)
+		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug, &thread.Votes)
 
 		if slug != nil {
 			thread.Slug = *slug
@@ -212,12 +208,20 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 	thread = &models.Thread{}
 	var created time.Time
 
+	tx, _ := conn.Begin()
+
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
-		err = conn.QueryRow(`
-			with s as (
+		err = tx.QueryRow(`
+			with delta as (
+				INSERT INTO Vote (author, thread, voice)
+					VALUES ((select id from "User" where nickname=$2), $1, $3)
+				ON CONFLICT ON CONSTRAINT unique_author_and_thread
+					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
+				RETURNING (prevVoice - voice) as d
+			), s as (
 				update Thread
-				set votes = votes + (select vote_thread($1, (select id from "User" where nickname=$2), $3::bool))
+				set votes = votes - (select d from delta)
 				where id = $1
 				returning id, created, forum, author, message, slug, title, votes
 			)
@@ -225,18 +229,18 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			from s
 			join "User" on "User".id = s.author
 			join forum on forum.id = s.forum
-		`, threadId, vote.Nickname, vote.Voice == 1).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+		`, threadId, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
-		err = conn.QueryRow(`
-			with s as (
+		err = tx.QueryRow(`
+			with delta as (
+				INSERT INTO Vote (author, thread, voice)
+					VALUES ((select id from "User" where nickname=$2), (select id from thread where slug = $1), $3)
+				ON CONFLICT ON CONSTRAINT unique_author_and_thread
+					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
+				RETURNING (prevVoice - voice) as d
+			), s as (
 				update Thread
-				set votes = votes + (
-					select vote_thread(
-						(select id from thread where slug = $1),
-						(select id from "User" where nickname=$2),
-						$3::bool
-					)
-				)
+				set votes = votes - (select d from delta)
 				where slug = $1
 				returning id, created, forum, author, message, slug, title, votes
 			)
@@ -244,13 +248,14 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			from s
 			join "User" on "User".id = s.author
 			join forum on forum.id = s.forum
-		`, threadSlug, vote.Nickname, vote.Voice == 1).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+		`, threadSlug, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	}
 
 	if err != nil {
-		//log.Println("VoteThread: getThreadId:", err)
+		tx.Rollback()
 		return nil, 404
 	}
+	tx.Commit()
 
 	thread.Created = (*strfmt.DateTime)(&created)
 
@@ -281,7 +286,6 @@ func GetThread(threadSlug string) (thread *models.Thread, status int) {
 	}
 
 	if err != nil {
-		//log.Println(err)
 		return nil, 404
 	}
 
@@ -294,9 +298,10 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 	thread = &models.Thread{}
 	var created time.Time
 
+	tx, _ := conn.Begin()
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
-		err = conn.QueryRow(`
+		err = tx.QueryRow(`
 			with updatedThread as (
 				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
 				where thread.id = $3
@@ -309,7 +314,7 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 		`, threadUpdate.Title, threadUpdate.Message, threadId).Scan(
 			&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Slug, &thread.Votes, &thread.Title, &thread.Message)
 	} else {
-		err = conn.QueryRow(`
+		err = tx.QueryRow(`
 			with updatedThread as (
 				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
 				where thread.slug = $3
@@ -324,9 +329,11 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 	}
 
 	if err != nil {
-		//log.Println(err)
+		tx.Rollback()
 		return nil, 404
 	}
+
+	tx.Commit()
 
 	thread.Created = (*strfmt.DateTime)(&created)
 
