@@ -5,7 +5,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	//"log"
+	"log"
 	"strconv"
 	"time"
 )
@@ -220,10 +220,16 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
-			with s as (
 		err = tx.QueryRow(`
+			with delta as (
+				INSERT INTO Vote (author, thread, voice)
+					VALUES ((select id from "User" where nickname=$2), $1, $3)
+				ON CONFLICT ON CONSTRAINT unique_author_and_thread
+					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
+				RETURNING (prevVoice - voice) as d
+			), s as (
 				update Thread
-				set votes = votes + (select vote_thread($1, (select id from "User" where nickname=$2), $3::bool))
+				set votes = votes - (select d from delta)
 				where id = $1
 				returning id, created, forum, author, message, slug, title, votes
 			)
@@ -231,18 +237,18 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			from s
 			join "User" on "User".id = s.author
 			join forum on forum.id = s.forum
-		`, threadId, vote.Nickname, vote.Voice == 1).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+		`, threadId, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
-			with s as (
 		err = tx.QueryRow(`
+			with delta as (
+				INSERT INTO Vote (author, thread, voice)
+					VALUES ((select id from "User" where nickname=$2), (select id from thread where slug = $1), $3)
+				ON CONFLICT ON CONSTRAINT unique_author_and_thread
+					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
+				RETURNING (prevVoice - voice) as d
+			), s as (
 				update Thread
-				set votes = votes + (
-					select vote_thread(
-						(select id from thread where slug = $1),
-						(select id from "User" where nickname=$2),
-						$3::bool
-					)
-				)
+				set votes = votes - (select d from delta)
 				where slug = $1
 				returning id, created, forum, author, message, slug, title, votes
 			)
@@ -250,12 +256,12 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			from s
 			join "User" on "User".id = s.author
 			join forum on forum.id = s.forum
-		`, threadSlug, vote.Nickname, vote.Voice == 1).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+		`, threadSlug, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	}
 
 	if err != nil {
-		//log.Println("VoteThread: getThreadId:", err)
 		tx.Rollback()
+		log.Println("VoteThread: getThreadId:", err)
 		return nil, 404
 	}
 	tx.Commit()

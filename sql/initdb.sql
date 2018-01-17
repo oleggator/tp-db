@@ -62,7 +62,10 @@ CREATE TABLE IF NOT EXISTS Vote (
   id     BIGSERIAL NOT NULL    PRIMARY KEY,
   author BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
   thread BIGINT    NOT NULL    REFERENCES Thread (id) ON DELETE CASCADE,
-  voice  BOOLEAN   NOT NULL
+  voice  INTEGER,
+  prevVoice INTEGER DEFAULT 0,
+  CONSTRAINT unique_author_and_thread UNIQUE (author, thread)
+
 );
 
 CREATE UNIQUE INDEX vote_thread_author_index
