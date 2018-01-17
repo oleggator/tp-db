@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	//"log"
 )
 
 func CreateUser(profile *models.User) (users []models.User, ok bool) {
@@ -14,10 +13,6 @@ func CreateUser(profile *models.User) (users []models.User, ok bool) {
            values ($1, $2::text, $3, $4::text);`,
 		profile.About, profile.Email, profile.Fullname, profile.Nickname,
 	)
-
-	//if nil != err {
-	//	log.Println("CreateUser:", err)
-	//}
 
 	if ct.RowsAffected() > 0 {
 		tx.Commit()
@@ -106,7 +101,6 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 	err := conn.QueryRow(`select id from forum where slug=$1`, slug).Scan(&forumId)
 
 	if err != nil {
-		//log.Println(err)
 		return nil, 404
 	}
 
@@ -172,10 +166,6 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 
 		rows, err = conn.Query(queryString, forumId)
 	}
-
-	//if err != nil {
-	//	log.Println("GetForumUsers", err)
-	//}
 
 	users = make([]models.User, 0)
 	for rows.Next() {

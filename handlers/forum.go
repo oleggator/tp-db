@@ -52,7 +52,6 @@ func ForumSlugCreatePost(ctx *fasthttp.RequestCtx) {
 	srcThread := models.Thread{}
 	srcThread.UnmarshalBinary(body)
 	srcThread.Forum = ctx.UserValue("slug").(string)
-	fmt.Println("ForumSlugCreatePost", srcThread.Slug)
 
 	ctx.SetContentType("application/json")
 
