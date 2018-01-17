@@ -8,7 +8,8 @@ import (
 )
 
 func CreateUser(profile *models.User) (users []models.User, ok bool) {
-	ct, _ := conn.Exec(`
+	tx, _ := conn.Begin()
+	ct, _ := tx.Exec(`
            insert into "User" (about, email, fullname, nickname)
            values ($1, $2::text, $3, $4::text);`,
 		profile.About, profile.Email, profile.Fullname, profile.Nickname,
@@ -19,8 +20,10 @@ func CreateUser(profile *models.User) (users []models.User, ok bool) {
 	//}
 
 	if ct.RowsAffected() > 0 {
+		tx.Commit()
 		return nil, true
 	}
+	tx.Rollback()
 
 	users = make([]models.User, 0)
 	rows, _ := conn.Query(
@@ -68,7 +71,8 @@ func UpdateUser(srcUser *models.User) (user *models.User, status int) {
 		return user, 200
 	}
 
-	ct, _ := conn.Exec(
+	tx, _ := conn.Begin()
+	ct, _ := tx.Exec(
 		`update "User" set
 			about=COALESCE(NULLIF($1, ''), about),
 			email=COALESCE(NULLIF($2::text, ''), email),
@@ -83,8 +87,10 @@ func UpdateUser(srcUser *models.User) (user *models.User, status int) {
 	)
 
 	if ct.RowsAffected() == 0 {
+		tx.Rollback()
 		return nil, 409
 	}
+	tx.Commit()
 
 	conn.QueryRow(
 		`select about, email, fullname from "User"

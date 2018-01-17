@@ -17,14 +17,17 @@ func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
 		return nil, 404
 	}
 
-	_, err = conn.Exec(`insert_into_forum`,
+	tx, _ := conn.Begin()
+	_, err = tx.Exec(`insert_into_forum`,
 		srcForum.Slug, srcForum.Title, userId,
 	)
 
 	if err == nil {
+		tx.Commit()
 		return srcForum, 201
 	}
 	//log.Println("CreateForum:", err)
+	tx.Rollback()
 
 	conn.QueryRow(
 		`select_forum`,

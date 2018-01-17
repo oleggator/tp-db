@@ -60,19 +60,21 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	)
 	existingThread.Created = (*strfmt.DateTime)(&created)
 
+	tx, _ := conn.Begin()
+
 	// Thread не существует
 	if err != nil {
 		var threadId int32
 		if srcThread.Created == nil {
 			if srcThread.Slug != "" {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, forum, message, title, slug)
 					values ($1, $2, $3, $4, $5)
 					returning id;`,
 					userId, forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
 				).Scan(&threadId)
 			} else {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, forum, message, title)
 					values ($1, $2, $3, $4)
 					returning id;`,
@@ -83,14 +85,14 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		} else {
 
 			if srcThread.Slug != "" {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, created, forum, message, title, slug)
 					values ($1, $2, $3, $4, $5, $6)
 					returning id;`,
 					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
 				).Scan(&threadId)
 			} else {
-				err = conn.QueryRow(`
+				err = tx.QueryRow(`
 					insert into Thread (author, created, forum, message, title)
 					values ($1, $2, $3, $4, $5)
 					returning id;`,
@@ -101,12 +103,14 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		}
 
 		if err == nil {
+			tx.Commit()
 			srcThread.Forum = forumSlug
 			srcThread.Author = nickname
 			srcThread.ID = threadId
 
 			return srcThread, 201
 		}
+		tx.Rollback()
 	}
 
 	err = conn.QueryRow(
@@ -212,10 +216,12 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 	thread = &models.Thread{}
 	var created time.Time
 
+	tx, _ := conn.Begin()
+
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
-		err = conn.QueryRow(`
 			with s as (
+		err = tx.QueryRow(`
 				update Thread
 				set votes = votes + (select vote_thread($1, (select id from "User" where nickname=$2), $3::bool))
 				where id = $1
@@ -227,8 +233,8 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 			join forum on forum.id = s.forum
 		`, threadId, vote.Nickname, vote.Voice == 1).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
-		err = conn.QueryRow(`
 			with s as (
+		err = tx.QueryRow(`
 				update Thread
 				set votes = votes + (
 					select vote_thread(
@@ -249,8 +255,10 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 
 	if err != nil {
 		//log.Println("VoteThread: getThreadId:", err)
+		tx.Rollback()
 		return nil, 404
 	}
+	tx.Commit()
 
 	thread.Created = (*strfmt.DateTime)(&created)
 
@@ -294,9 +302,10 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 	thread = &models.Thread{}
 	var created time.Time
 
+	tx, _ := conn.Begin()
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
-		err = conn.QueryRow(`
+		err = tx.QueryRow(`
 			with updatedThread as (
 				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
 				where thread.id = $3
@@ -309,7 +318,7 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 		`, threadUpdate.Title, threadUpdate.Message, threadId).Scan(
 			&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Slug, &thread.Votes, &thread.Title, &thread.Message)
 	} else {
-		err = conn.QueryRow(`
+		err = tx.QueryRow(`
 			with updatedThread as (
 				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
 				where thread.slug = $3
@@ -324,9 +333,12 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 	}
 
 	if err != nil {
+		tx.Rollback()
 		//log.Println(err)
 		return nil, 404
 	}
+
+	tx.Commit()
 
 	thread.Created = (*strfmt.DateTime)(&created)
 

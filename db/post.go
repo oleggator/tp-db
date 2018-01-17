@@ -88,7 +88,8 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	}
 	batch.Close()
 
-	batch = conn.BeginBatch()
+	tx, _ := conn.Begin()
+	batch = tx.BeginBatch()
 	for i, _ := range srcPosts {
 		srcPosts[i].ID = postsIds[i]
 		srcPosts[i].Thread = threadId
@@ -109,10 +110,12 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 	if err != nil {
 		log.Println("Batch:", err)
 		batch.Close()
+		tx.Rollback()
 		return nil, 404
 	}
 
 	batch.Close()
+	tx.Commit()
 
 	return srcPosts, 201
 }
@@ -228,12 +231,19 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 		return post, 200
 	}
 
-	conn.Exec(`
+	tx, _ := conn.Begin()
+	_, err = tx.Exec(`
         update post set message=$1, isEdited=TRUE where id=$2
     `, postUpdate.Message, postId)
 
 	post.Message = postUpdate.Message
 	post.IsEdited = true
+
+	if err != nil {
+		tx.Rollback()
+		return nil, 404
+	}
+	tx.Commit()
 
 	return post, 200
 }
