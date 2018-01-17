@@ -105,7 +105,7 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 
 			conn.Exec(`
 				with s as (
-					select $1, about, email, fullname, $2 from "User"
+					select $1::text, about, email, fullname, $2::text from "User"
 					where id=$3
 				)
 				insert into ForumUser (slug, about, email, fullname, nickname)
