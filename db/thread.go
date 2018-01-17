@@ -153,6 +153,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 	}
 
 	var rows *pgx.Rows
+
 	threads = make([]models.Thread, 0)
 	if sinceString != "" {
 		since, _ := time.Parse(time.RFC3339, sinceString)
@@ -166,7 +167,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 		`, compareString, sorting, limitString)
 
 		rows, err = conn.Query(queryString, forumId, since)
-
+		defer rows.Close()
 	} else {
 		queryString := fmt.Sprintf(`
 			select Thread.id, authorNickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes, forumSlug
@@ -176,6 +177,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 			%s
 		`, sorting, limitString)
 		rows, err = conn.Query(queryString, forumId)
+		defer rows.Close()
 	}
 
 	for rows.Next() {

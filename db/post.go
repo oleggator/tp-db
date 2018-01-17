@@ -312,6 +312,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
         `, compareString, sorting, limitString)
 
 		rows, err := conn.Query(query, threadId)
+		defer rows.Close()
 		if err != nil {
 			return nil, 404
 		}
@@ -358,6 +359,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		`, compareString, sorting, limitString, sorting)
 
 		rows, err := conn.Query(query, threadId)
+		defer rows.Close()
 		if err != nil {
 			return nil, 404
 		}
@@ -398,6 +400,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
         `, compareString, sorting, limitString)
 
 		rows, err := conn.Query(query, threadId)
+		defer rows.Close()
 		if err != nil {
 			return nil, 404
 		}

@@ -131,6 +131,7 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 		`, compareString, sorting, limitString)
 
 		rows, err = conn.Query(queryString, slug, sinceNickname)
+		defer rows.Close()
 	} else {
 		queryString := fmt.Sprintf(`
 			select about, email, fullname, nickname from ForumUser
@@ -140,6 +141,7 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 		`, sorting, limitString)
 
 		rows, err = conn.Query(queryString, slug)
+		defer rows.Close()
 	}
 
 	if err != nil {
