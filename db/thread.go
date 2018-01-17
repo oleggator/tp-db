@@ -167,7 +167,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 		since, _ := time.Parse(time.RFC3339, sinceString)
 
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, Thread.slug
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1 and created %s $2
@@ -179,7 +179,7 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 	} else {
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, Thread.slug
+			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, '')
 			from Thread
 			join "User" on "User".id = Thread.author
 			where forum=$1
@@ -302,7 +302,7 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 				where thread.id = $3
 				returning id, author, created, forum, slug, votes, title, message
 			)
-			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, updatedThread.slug, updatedThread.votes, updatedThread.title, updatedThread.message
+			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, coalesce(updatedThread.slug, ''), updatedThread.votes, updatedThread.title, updatedThread.message
 			from updatedThread
 			join "User" on "User".id = updatedThread.author
 			join forum on forum.id = updatedThread.forum
@@ -315,7 +315,7 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 				where thread.slug = $3
 				returning id, author, created, forum, slug, votes, title, message
 			)
-			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, updatedThread.slug, updatedThread.votes, updatedThread.title, updatedThread.message
+			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, coalesce(updatedThread.slug, ''), updatedThread.votes, updatedThread.title, updatedThread.message
 			from updatedThread
 			join "User" on "User".id = updatedThread.author
 			join forum on forum.id = updatedThread.forum
