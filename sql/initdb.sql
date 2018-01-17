@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS Forum (
   slug      CITEXT    NOT NULL    UNIQUE,
   title     TEXT      NOT NULL    ,
   moderator BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
-  moderatorNickname citext NOT NULL
+  moderatorNickname citext NOT NULL,
+  threadsCount INTEGER DEFAULT 0,
+  postsCount INTEGER DEFAULT 0
 );
 
 -- CREATE UNIQUE INDEX forum_slug_index
@@ -112,3 +114,16 @@ CREATE INDEX post_thread_parent_index
 
 CREATE INDEX post_thread_id_index
   on post ("thread", id);
+
+
+CREATE TABLE IF NOT EXISTS ForumUser (
+  id      BIGSERIAL                NOT NULL    PRIMARY KEY,
+  slug      CITEXT    NOT NULL,
+  about    TEXT      DEFAULT '',
+  email    CITEXT    NOT NULL,
+  fullname TEXT      NOT NULL,
+  nickname CITEXT    NOT NULL
+);
+
+CREATE UNIQUE INDEX forum_user_slug_nickname_index
+  on ForumUser (slug, lower(nickname));
