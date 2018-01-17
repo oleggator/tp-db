@@ -7,7 +7,9 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
+	"log"
 
+	//"log"
 	"strconv"
 	"time"
 )
@@ -52,6 +54,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		var status int
 		err = batch.QueryRowResults().Scan(&status)
 		if err != nil || status != 201 {
+			//log.Println("CreatePosts: batch scan error:", err)
 			batch.Close()
 			return nil, 409
 		}
@@ -105,6 +108,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 
 	_, err = batch.ExecResults()
 	if err != nil {
+		log.Println("Batch:", err)
 		batch.Close()
 		tx.Rollback()
 		return nil, 404
@@ -138,6 +142,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId, &post.Parent)
 
 	if err != nil {
+		//log.Println("GetPost:", err)
 		return nil, 404
 	}
 
@@ -154,6 +159,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, forumId).Scan(&forum.Slug, &forum.Title, &forum.User)
 
 		if err != nil {
+			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 
@@ -175,6 +181,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, post.Thread).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 
 		if err != nil {
+			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 
@@ -191,6 +198,7 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
         `, userId).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
 
 		if err != nil {
+			//log.Println("GetPost:", err)
 			return nil, 404
 		}
 	}
@@ -213,6 +221,7 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &post.Parent)
 
 	if err != nil {
+		//log.Println("ModifyPost:", err)
 		return nil, 404
 	}
 
@@ -260,6 +269,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 	}
 
 	if err != nil {
+		//log.Println("GetPosts:", err)
 		return nil, 404
 	}
 
@@ -300,6 +310,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -348,6 +359,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
@@ -391,6 +403,7 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		rows, err := conn.Query(query, threadId)
 		if err != nil {
+			//log.Println("GetPosts:", err)
 			return nil, 404
 		}
 
