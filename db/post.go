@@ -95,7 +95,7 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		batch.Queue(
 			`insert_post`,
 			[]interface{}{srcPosts[i].Author, srcPosts[i].Message, threadId, srcPosts[i].IsEdited, forumId,
-				srcPosts[i].Created, srcPosts[i].Parent, parents[i], parents[i][0], srcPosts[i].ID},
+				srcPosts[i].Created, srcPosts[i].Parent, parents[i], parents[i][0], srcPosts[i].ID, forumSlug},
 			nil,
 			nil,
 		)
@@ -129,11 +129,8 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		userId  int32
 	)
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, forum.id, "User".id, coalesce(post.parent, 0)
+        select authorNickname, created, forumSlug, isEdited, message, "thread", forum, author, coalesce(parent, 0)
         from Post
-        join "User" on "User".id = post.author
-        join forum on forum.id = post.forum
-        join thread on thread.id = post."thread"
         where post.id = $1
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &forumId, &userId, &post.Parent)
 
@@ -145,13 +142,13 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 
 	if withForum {
 		forum := models.Forum{}
+		forum.Slug = post.Forum
 		postInfo.Forum = &forum
 
 		err := conn.QueryRow(`
-            select forum.slug, forum.title, "User".nickname from forum
-            join "User" on "User".id=forum.moderator
+            select forum.title, moderatorNickname from forum
             where forum.id=$1
-        `, forumId).Scan(&forum.Slug, &forum.Title, &forum.User)
+        `, forumId).Scan(&forum.Title, &forum.User)
 
 		if err != nil {
 			return nil, 404
@@ -164,15 +161,14 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 	if withThread {
 		var created time.Time
 		thread := models.Thread{}
+		thread.ID = post.Thread
 		postInfo.Thread = &thread
 
 		err = conn.QueryRow(`
-            select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
+            select authorNickname, created, forumSlug, message, coalesce(slug, ''), title, votes
             from thread
-            join "User" on "User".id = thread.author
-            join forum on forum.id = thread.forum
             where thread.id = $1
-        `, post.Thread).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+        `, post.Thread).Scan(&thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 
 		if err != nil {
 			return nil, 404
@@ -204,11 +200,8 @@ func ModifyPost(postUpdate *models.PostUpdate, postId int64) (post *models.Post,
 
 	var created time.Time
 	err := conn.QueryRow(`
-        select "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
+        select authorNickname, post.created, forumSlug, post.isEdited, post.message, "thread", coalesce(post.parent, 0)
         from Post
-        join "User" on "User".id = post.author
-        join forum on forum.id = post.forum
-        join thread on thread.id = post."thread"
         where post.id = $1
     `, postId).Scan(&post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &post.Parent)
 
@@ -288,11 +281,8 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		}
 
 		query := fmt.Sprintf(`
-            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
+            select id, authorNickname, created, forumSlug, isEdited, message, coalesce(parent, 0)
             from Post
-            join "User" on "User".id = post.author
-            join forum on forum.id = post.forum
-            join thread on thread.id = post."thread"
             where post."thread" = $1 %s
             order by parents %s
             %s
@@ -305,9 +295,10 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 
 		for rows.Next() {
 			post := models.Post{}
+			post.Thread = threadId
 
 			var created time.Time
-			rows.Scan(&post.ID, &post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Thread, &post.Parent)
+			rows.Scan(&post.ID, &post.Author, &created, &post.Forum, &post.IsEdited, &post.Message, &post.Parent)
 			post.Created = (*strfmt.DateTime)(&created)
 
 			posts = append(posts, post)
@@ -331,11 +322,8 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		}
 
 		query := fmt.Sprintf(`
-            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
+            select post.id, authorNickname, created, forumSlug, isEdited, message, "thread", coalesce(parent, 0)
             from Post
-            join "User" on "User".id = post.author
-            join forum on forum.id = post.forum
-            join thread on thread.id = post."thread"
 			join (
 				select id from post
 				where parent=0 and post."thread"=$1 %s
@@ -379,13 +367,10 @@ func GetPosts(threadSlug string, limit int32, since int, desc bool, sortString s
 		}
 
 		query := fmt.Sprintf(`
-            select post.id, "User".nickname, post.created, forum.slug, post.isEdited, post.message, thread.id, coalesce(post.parent, 0)
+            select id, authorNickname, created, forumSlug, isEdited, message, "thread", coalesce(parent, 0)
             from Post
-            join "User" on "User".id = post.author
-            join forum on forum.id = post.forum
-            join thread on thread.id = post."thread"
-            where post."thread" = $1 %s
-            order by post.id %s
+            where "thread" = $1 %s
+            order by id %s
             %s
         `, compareString, sorting, limitString)
 

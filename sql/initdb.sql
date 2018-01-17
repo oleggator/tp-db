@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS Forum (
   id        BIGSERIAL NOT NULL    PRIMARY KEY,
   slug      CITEXT    NOT NULL    UNIQUE,
   title     TEXT      NOT NULL    ,
-  moderator BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE
+  moderator BIGINT    NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
+  moderatorNickname citext NOT NULL
 );
 
 -- CREATE UNIQUE INDEX forum_slug_index
@@ -34,8 +35,10 @@ CREATE UNIQUE INDEX forum_slug_id_index
 CREATE TABLE IF NOT EXISTS Thread (
   id      BIGSERIAL                NOT NULL    PRIMARY KEY,
   author  BIGINT                   NOT NULL    REFERENCES "User" (id) ON DELETE CASCADE,
+  authorNickname citext NOT NULL ,
   created TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   forum   BIGINT REFERENCES Forum (id) ON DELETE CASCADE,
+  forumSlug citext NOT NULL ,
   message TEXT                     NOT NULL,
   slug    CITEXT UNIQUE,
   title   TEXT                     NOT NULL,
@@ -74,13 +77,15 @@ CREATE UNIQUE INDEX vote_thread_author_index
 CREATE TABLE IF NOT EXISTS Post (
   id       BIGSERIAL                NOT NULL    PRIMARY KEY,
   author   BIGINT NOT NULL REFERENCES "User" (id)  ON DELETE CASCADE,
+  authorNickname citext NOT NULL ,
   created  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   forum    BIGINT REFERENCES Forum (id) ON DELETE CASCADE,
+  forumSlug citext NOT NULL,
   isEdited BOOLEAN                  NOT NULL,
   message  TEXT                     NOT NULL,
-  parent   BIGINT ,
-  parents  BIGINT [] ,
-  root_parent BIGINT    ,
+  parent   BIGINT,
+  parents  BIGINT [],
+  root_parent BIGINT,
   "thread" BIGINT REFERENCES Thread (id) ON DELETE CASCADE
 );
 
@@ -104,3 +109,6 @@ CREATE INDEX post_root_parent_index
 
 CREATE INDEX post_thread_parent_index
   ON post ("thread", parent);
+
+CREATE INDEX post_thread_id_index
+  on post ("thread", id);

@@ -35,21 +35,19 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	}
 
 	var (
-		existingThread  models.Thread
-		authorId        int32
-		existingForumId int32
-		created         time.Time
+		existingThread models.Thread
+		created        time.Time
 	)
 
 	err = conn.QueryRow(
-		`select id, author, created, forum, Thread.message, slug, title, votes from Thread
+		`select id, authorNickname, created, forumSlug, Thread.message, slug, title, votes from Thread
 		where slug=$1`,
 		srcThread.Slug,
 	).Scan(
 		&existingThread.ID,
-		&authorId,
+		&existingThread.Author,
 		&created,
-		&existingForumId,
+		&existingThread.Forum,
 		&existingThread.Message,
 		&existingThread.Slug,
 		&existingThread.Title,
@@ -57,25 +55,25 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	)
 	existingThread.Created = (*strfmt.DateTime)(&created)
 
-	tx, _ := conn.Begin()
-
 	// Thread не существует
 	if err != nil {
+		tx, _ := conn.Begin()
+
 		var threadId int32
 		if srcThread.Created == nil {
 			if srcThread.Slug != "" {
 				err = tx.QueryRow(`
-					insert into Thread (author, forum, message, title, slug)
-					values ($1, $2, $3, $4, $5)
+					insert into Thread (author, forum, message, title, slug, forumSlug, authorNickname)
+					values ($1, $2, $3, $4, $5, $6, $7)
 					returning id;`,
-					userId, forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
+					userId, forumId, srcThread.Message, srcThread.Title, srcThread.Slug, forumSlug, nickname,
 				).Scan(&threadId)
 			} else {
 				err = tx.QueryRow(`
-					insert into Thread (author, forum, message, title)
-					values ($1, $2, $3, $4)
+					insert into Thread (author, forum, message, title, forumSlug, authorNickname)
+					values ($1, $2, $3, $4, $5, $6)
 					returning id;`,
-					userId, forumId, srcThread.Message, srcThread.Title,
+					userId, forumId, srcThread.Message, srcThread.Title, forumSlug, nickname,
 				).Scan(&threadId)
 			}
 
@@ -83,17 +81,17 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 
 			if srcThread.Slug != "" {
 				err = tx.QueryRow(`
-					insert into Thread (author, created, forum, message, title, slug)
-					values ($1, $2, $3, $4, $5, $6)
+					insert into Thread (author, created, forum, message, title, slug, forumSlug, authorNickname)
+					values ($1, $2, $3, $4, $5, $6, $7, $8)
 					returning id;`,
-					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title, srcThread.Slug,
+					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title, srcThread.Slug, forumSlug, nickname,
 				).Scan(&threadId)
 			} else {
 				err = tx.QueryRow(`
-					insert into Thread (author, created, forum, message, title)
-					values ($1, $2, $3, $4, $5)
+					insert into Thread (author, created, forum, message, title, forumSlug, authorNickname)
+					values ($1, $2, $3, $4, $5, $6, $7)
 					returning id;`,
-					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title,
+					userId, (*time.Time)(srcThread.Created), forumId, srcThread.Message, srcThread.Title, forumSlug, nickname,
 				).Scan(&threadId)
 			}
 
@@ -110,31 +108,18 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		tx.Rollback()
 	}
 
-	err = conn.QueryRow(
-		`select slug from Forum
-		where id=$1;`,
-		existingForumId,
-	).Scan(&existingThread.Forum)
-
-	err = conn.QueryRow(
-		`select nickname from "User"
-		where id=$1;`,
-		authorId,
-	).Scan(&existingThread.Author)
-
 	return &existingThread, 409
 }
 
 func GetThreads(slug string, limit int32, sinceString string, desc bool) (threads []models.Thread, status int) {
 	var (
-		forumSlug string
-		forumId   int32
+		forumId int32
 	)
 	err := conn.QueryRow(
-		`select id, slug from forum
+		`select id from forum
         where slug=$1`,
 		slug,
-	).Scan(&forumId, &forumSlug)
+	).Scan(&forumId)
 
 	if err != nil {
 		return nil, 404
@@ -163,9 +148,8 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 		since, _ := time.Parse(time.RFC3339, sinceString)
 
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
+			select Thread.id, authorNickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes, forumSlug
 			from Thread
-			join "User" on "User".id = Thread.author
 			where forum=$1 and created %s $2
 			order by created %s
 			%s
@@ -175,9 +159,8 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 	} else {
 		queryString := fmt.Sprintf(`
-			select Thread.id, "User".nickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes
+			select Thread.id, authorNickname, Thread.created, Thread.message, Thread.title, coalesce(Thread.slug, ''), votes, forumSlug
 			from Thread
-			join "User" on "User".id = Thread.author
 			where forum=$1
 			order by created %s
 			%s
@@ -190,13 +173,12 @@ func GetThreads(slug string, limit int32, sinceString string, desc bool) (thread
 
 		var created time.Time
 		var slug *string
-		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug, &thread.Votes)
+		rows.Scan(&thread.ID, &thread.Author, &created, &thread.Message, &thread.Title, &thread.Slug, &thread.Votes, &thread.Forum)
 
 		if slug != nil {
 			thread.Slug = *slug
 		}
 
-		thread.Forum = forumSlug
 		thread.Created = (*strfmt.DateTime)(&created)
 		threads = append(threads, thread)
 	}
@@ -219,17 +201,12 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 				ON CONFLICT ON CONSTRAINT unique_author_and_thread
 					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
 				RETURNING (prevVoice - voice) as d
-			), s as (
-				update Thread
-				set votes = votes - (select d from delta)
-				where id = $1
-				returning id, created, forum, author, message, slug, title, votes
 			)
-			select s.id, "User".nickname, s.created, forum.slug, s.message, coalesce(s.slug, ''), s.title, s.votes
-			from s
-			join "User" on "User".id = s.author
-			join forum on forum.id = s.forum
-		`, threadId, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+			update Thread
+			set votes = votes - (select d from delta)
+			where id = $1
+			returning id, created, forumSlug, authorNickname, message, coalesce(slug, ''), title, votes
+		`, threadId, vote.Nickname, vote.Voice).Scan(&thread.ID, &created, &thread.Forum, &thread.Author, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
 		err = tx.QueryRow(`
 			with delta as (
@@ -238,17 +215,12 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 				ON CONFLICT ON CONSTRAINT unique_author_and_thread
 					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
 				RETURNING (prevVoice - voice) as d
-			), s as (
-				update Thread
-				set votes = votes - (select d from delta)
-				where slug = $1
-				returning id, created, forum, author, message, slug, title, votes
 			)
-			select s.id, "User".nickname, s.created, forum.slug, s.message, coalesce(s.slug, ''), s.title, s.votes
-			from s
-			join "User" on "User".id = s.author
-			join forum on forum.id = s.forum
-		`, threadSlug, vote.Nickname, vote.Voice).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+			update Thread
+			set votes = votes - (select d from delta)
+			where slug = $1
+			returning id, created, forumSlug, authorNickname, message, coalesce(slug, ''), title, votes
+		`, threadSlug, vote.Nickname, vote.Voice).Scan(&thread.ID, &created, &thread.Forum, &thread.Author, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	}
 
 	if err != nil {
@@ -269,18 +241,14 @@ func GetThread(threadSlug string) (thread *models.Thread, status int) {
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
+			select thread.id, authorNickname, thread.created, forumSlug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
 			from thread
-			join "User" on "User".id = thread.author
-			join forum on forum.id = thread.forum
 			where thread.id = $1
 		`, threadId).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	} else {
 		err = conn.QueryRow(`
-			select thread.id, "User".nickname, thread.created, forum.slug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
+			select thread.id, authorNickname, thread.created, forumSlug, thread.message, coalesce(thread.slug, ''), thread.title, thread.votes
 			from thread
-			join "User" on "User".id = thread.author
-			join forum on forum.id = thread.forum
 			where thread.slug = $1
 		`, threadSlug).Scan(&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	}
@@ -302,28 +270,16 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 	threadId, err := strconv.ParseInt(threadSlug, 0, 32)
 	if err == nil {
 		err = tx.QueryRow(`
-			with updatedThread as (
-				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
-				where thread.id = $3
-				returning id, author, created, forum, slug, votes, title, message
-			)
-			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, coalesce(updatedThread.slug, ''), updatedThread.votes, updatedThread.title, updatedThread.message
-			from updatedThread
-			join "User" on "User".id = updatedThread.author
-			join forum on forum.id = updatedThread.forum
+			update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
+			where thread.id = $3
+			returning id, authorNickname, created, forumSlug, coalesce(slug, ''), votes, title, message
 		`, threadUpdate.Title, threadUpdate.Message, threadId).Scan(
 			&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Slug, &thread.Votes, &thread.Title, &thread.Message)
 	} else {
 		err = tx.QueryRow(`
-			with updatedThread as (
-				update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
-				where thread.slug = $3
-				returning id, author, created, forum, slug, votes, title, message
-			)
-			select updatedThread.id, "User".nickname, updatedThread.created, forum.slug, coalesce(updatedThread.slug, ''), updatedThread.votes, updatedThread.title, updatedThread.message
-			from updatedThread
-			join "User" on "User".id = updatedThread.author
-			join forum on forum.id = updatedThread.forum
+			update thread set title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message)
+			where thread.slug = $3
+			returning id, authorNickname, created, forumSlug, coalesce(slug, ''), votes, title, message
 		`, threadUpdate.Title, threadUpdate.Message, threadSlug).Scan(
 			&thread.ID, &thread.Author, &created, &thread.Forum, &thread.Slug, &thread.Votes, &thread.Title, &thread.Message)
 	}

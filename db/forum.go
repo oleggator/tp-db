@@ -17,7 +17,7 @@ func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
 
 	tx, _ := conn.Begin()
 	_, err = tx.Exec(`insert_into_forum`,
-		srcForum.Slug, srcForum.Title, userId,
+		srcForum.Slug, srcForum.Title, userId, srcForum.User,
 	)
 
 	if err == nil {
