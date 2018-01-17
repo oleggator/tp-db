@@ -103,6 +103,16 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 			srcThread.Author = nickname
 			srcThread.ID = threadId
 
+			conn.Exec(`
+				with s as (
+					select $1, about, email, fullname, $2 from "User"
+					where id=$3
+				)
+				insert into ForumUser (slug, about, email, fullname, nickname)
+				select * from s
+				on conflict do nothing;
+			`, forumSlug, nickname, userId)
+
 			return srcThread, 201
 		}
 		tx.Rollback()

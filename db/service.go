@@ -21,5 +21,5 @@ func CountUsers() (count int32) {
 }
 
 func Clear() {
-	conn.Exec(`TRUNCATE "User", post, thread, vote, forum RESTART IDENTITY CASCADE`)
+	conn.Exec(`TRUNCATE "User", post, thread, vote, forum, forumuser RESTART IDENTITY CASCADE`)
 }

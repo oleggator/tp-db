@@ -10,8 +10,8 @@ func CreateUser(profile *models.User) (users []models.User, ok bool) {
 	tx, _ := conn.Begin()
 	ct, _ := tx.Exec(`
            insert into "User" (about, email, fullname, nickname)
-           values ($1, $2::text, $3, $4::text);`,
-		profile.About, profile.Email, profile.Fullname, profile.Nickname,
+           values ($1, $2, $3, $4);`,
+		profile.About, string(profile.Email), profile.Fullname, profile.Nickname,
 	)
 
 	if ct.RowsAffected() > 0 {
@@ -124,47 +124,26 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 	var rows *pgx.Rows
 	if sinceNickname != "" {
 		queryString := fmt.Sprintf(`
-			with users as (
-				select distinct author
-				from Thread
-				where forum=$1
-
-				union distinct
-
-				select distinct author
-				from Post
-				where forum=$1
-			)
-			select "User".about, "User".email, "User".fullname, "User".nickname
-			from users
-			join "User" on "User".id = users.author
-			where "User".nickname %s $2
-			order by lower("User".nickname) %s
+			select about, email, fullname, nickname from ForumUser
+			where slug=$1 and nickname %s $2
+			order by lower(nickname) %s
 			%s
 		`, compareString, sorting, limitString)
 
-		rows, err = conn.Query(queryString, forumId, sinceNickname)
+		rows, err = conn.Query(queryString, slug, sinceNickname)
 	} else {
 		queryString := fmt.Sprintf(`
-			with users as (
-				select distinct author
-				from Thread
-				where forum=$1
-
-				union distinct
-
-				select distinct author
-				from Post
-				where forum=$1
-			)
-			select "User".about, "User".email, "User".fullname, "User".nickname
-			from users
-			join "User" on "User".id = users.author
-			order by lower("User".nickname) %s
+			select about, email, fullname, nickname from ForumUser
+			where slug=$1
+			order by lower(nickname) %s
 			%s
 		`, sorting, limitString)
 
-		rows, err = conn.Query(queryString, forumId)
+		rows, err = conn.Query(queryString, slug)
+	}
+
+	if err != nil {
+		return nil, 404
 	}
 
 	users = make([]models.User, 0)

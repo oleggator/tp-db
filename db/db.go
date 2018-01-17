@@ -32,8 +32,8 @@ func InitDB(config pgx.ConnConfig) {
 	conn.Prepare("posts_count", `select count(*) from post where forum=$1`)
 
 	conn.Prepare("insert_post", `
-        insert into Post (author, message, "thread", isEdited, forum, created, parent, parents, root_parent, id, authorNickname, forumSlug)
-        values ((select id from "User" where nickname=$1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $1, $11)
+		insert into Post (author, message, "thread", isEdited, forum, created, parent, parents, root_parent, id, authorNickname, forumSlug)
+		values ((select id from "User" where nickname=$1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $1, $11)
     `)
 	conn.Prepare("get_forum_details", `
         select id, slug, title, moderatorNickname from forum
