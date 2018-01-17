@@ -2,7 +2,6 @@ package db
 
 import (
 	"github.com/oleggator/tp-db/models"
-	"log"
 )
 
 func CreateForum(srcForum *models.Forum) (forum *models.Forum, status int) {
@@ -44,7 +43,6 @@ func GetForumDetails(slug string) (forum *models.Forum, status int) {
 	err := conn.QueryRow(`get_forum_details`, slug).Scan(&forumId, &forum.Slug, &forum.Title, &forum.User)
 
 	if err != nil {
-		log.Println("GetForumDetails:", err)
 		return forum, 404
 	}
 

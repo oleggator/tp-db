@@ -5,7 +5,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/jackc/pgx"
 	"github.com/oleggator/tp-db/models"
-	"log"
 	"strconv"
 	"time"
 )
@@ -21,7 +20,6 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	).Scan(&forumId, &forumSlug)
 
 	if err != nil {
-		//log.Println("CreateThread:", err)
 		return nil, 404
 	}
 
@@ -33,7 +31,6 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 	).Scan(&userId, &nickname)
 
 	if err != nil {
-		//log.Println("CreateThread:", err)
 		return nil, 404
 	}
 
@@ -44,7 +41,7 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		created         time.Time
 	)
 
-	err = conn.QueryRow(
+	conn.QueryRow(
 		`select id, author, created, forum, Thread.message, slug, title, votes from Thread
 		where slug=$1`,
 		srcThread.Slug,
@@ -113,22 +110,17 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 		tx.Rollback()
 	}
 
-	err = conn.QueryRow(
+	conn.QueryRow(
 		`select slug from Forum
 		where id=$1;`,
 		existingForumId,
 	).Scan(&existingThread.Forum)
 
-	//log.Println(err)
-
-	err = conn.QueryRow(
+	conn.QueryRow(
 		`select nickname from "User"
 		where id=$1;`,
 		authorId,
 	).Scan(&existingThread.Author)
-	//if err != nil {
-	//	log.Println("CreateThread:", err)
-	//}
 
 	return &existingThread, 409
 }
@@ -261,7 +253,6 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 
 	if err != nil {
 		tx.Rollback()
-		log.Println("VoteThread: getThreadId:", err)
 		return nil, 404
 	}
 	tx.Commit()
@@ -295,7 +286,6 @@ func GetThread(threadSlug string) (thread *models.Thread, status int) {
 	}
 
 	if err != nil {
-		//log.Println(err)
 		return nil, 404
 	}
 
@@ -340,7 +330,6 @@ func ModifyThread(threadUpdate *models.ThreadUpdate, threadSlug string) (thread 
 
 	if err != nil {
 		tx.Rollback()
-		//log.Println(err)
 		return nil, 404
 	}
 

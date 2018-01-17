@@ -129,7 +129,6 @@ func ThreadSlugOrIdPostsGet(ctx *fasthttp.RequestCtx) {
 func ThreadSlugOrIdVotePost(ctx *fasthttp.RequestCtx) {
 	vote := models.Vote{}
 	vote.UnmarshalBinary(ctx.PostBody())
-
 	ctx.SetContentType("application/json")
 
 	switch thread, status := db.VoteThread(&vote, ctx.UserValue("slug_or_id").(string)); status {
