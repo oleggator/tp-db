@@ -125,7 +125,7 @@ func GetForumUsers(slug string, limit int32, sinceNickname string, desc bool) (u
 	if sinceNickname != "" {
 		queryString := fmt.Sprintf(`
 			select about, email, fullname, nickname from ForumUser
-			where slug=$1 and nickname %s $2
+			where slug=$1 and lower(nickname) %s $2
 			order by lower(nickname) %s
 			%s
 		`, compareString, sorting, limitString)
