@@ -103,7 +103,15 @@ func CreateThread(srcThread *models.Thread) (threadNew *models.Thread, status in
 			srcThread.Author = nickname
 			srcThread.ID = threadId
 
-			conn.Exec(`
+			_, err = conn.Exec(
+				`
+					update forum set threadsCount=threadsCount+1
+					where id=$1
+				`,
+				forumId,
+			)
+
+			_, err = conn.Exec(`
 				with s as (
 					select $1::text, about, email, fullname, $2::text from "User"
 					where id=$3

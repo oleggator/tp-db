@@ -36,7 +36,7 @@ func InitDB(config pgx.ConnConfig) {
 		values ((select id from "User" where nickname=$1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $1, $11)
     `)
 	conn.Prepare("get_forum_details", `
-        select id, slug, title, moderatorNickname from forum
+        select id, slug, title, moderatorNickname, threadsCount, postsCount from forum
 		where slug=$1
     `)
 

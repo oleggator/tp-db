@@ -38,14 +38,14 @@ func GetForumDetails(slug string) (forum *models.Forum, status int) {
 	forum = &models.Forum{}
 
 	var forumId int32
-	err := conn.QueryRow(`get_forum_details`, slug).Scan(&forumId, &forum.Slug, &forum.Title, &forum.User)
+	err := conn.QueryRow(`get_forum_details`, slug).Scan(&forumId, &forum.Slug, &forum.Title, &forum.User, &forum.Threads, &forum.Posts)
 
 	if err != nil {
 		return forum, 404
 	}
 
-	conn.QueryRow(`threads_count`, forumId).Scan(&forum.Threads)
-	conn.QueryRow(`posts_count`, forumId).Scan(&forum.Posts)
+	//conn.QueryRow(`threads_count`, forumId).Scan(&forum.Threads)
+	//conn.QueryRow(`posts_count`, forumId).Scan(&forum.Posts)
 
 	return forum, 200
 }
