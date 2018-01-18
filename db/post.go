@@ -195,16 +195,16 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		postInfo.Forum = &forum
 
 		err := conn.QueryRow(`
-            select forum.title, moderatorNickname from forum
+            select forum.title, moderatorNickname, postsCount, threadsCount from forum
             where forum.id=$1
-        `, forumId).Scan(&forum.Title, &forum.User)
+        `, forumId).Scan(&forum.Title, &forum.User, &forum.Posts, &forum.Threads)
 
 		if err != nil {
 			return nil, 404
 		}
 
-		conn.QueryRow(` select count(*) from thread where forum=$1 `, forumId).Scan(&forum.Threads)
-		conn.QueryRow(` select count(*) from post where forum=$1 `, forumId).Scan(&forum.Posts)
+		//conn.QueryRow(` select count(*) from thread where forum=$1 `, forumId).Scan(&forum.Threads)
+		//conn.QueryRow(` select count(*) from post where forum=$1 `, forumId).Scan(&forum.Posts)
 	}
 
 	if withThread {
