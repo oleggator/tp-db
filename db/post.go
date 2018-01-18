@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
+	//"log"
 
 	"strconv"
 	"time"
@@ -153,22 +154,13 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 			[]pgtype.OID{pgtype.VarcharOID, pgtype.VarcharOID},
 			nil,
 		)
-
-		batch.Queue(
-			`
-				update forum set postsCount=postsCount+1
-				where id=$1
-			`,
-			[]interface{}{forumId},
-			[]pgtype.OID{pgtype.Int8OID},
-			nil,
-		)
 	}
 
 	err = batch.Send(context.Background(), nil)
 	_, err = batch.ExecResults()
-
 	batch.Close()
+
+	conn.Exec(`update forum set postsCount=postsCount+$1 where id=$2`, len(srcPosts), forumId)
 
 	return srcPosts, 201
 }
