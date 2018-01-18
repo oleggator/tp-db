@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/oleggator/tp-db/models"
-	//"log"
 
 	"strconv"
 	"time"
@@ -202,9 +201,6 @@ func GetPost(postId int64, withAuthor bool, withThread bool, withForum bool) (po
 		if err != nil {
 			return nil, 404
 		}
-
-		//conn.QueryRow(` select count(*) from thread where forum=$1 `, forumId).Scan(&forum.Threads)
-		//conn.QueryRow(` select count(*) from post where forum=$1 `, forumId).Scan(&forum.Posts)
 	}
 
 	if withThread {

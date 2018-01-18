@@ -44,8 +44,5 @@ func GetForumDetails(slug string) (forum *models.Forum, status int) {
 		return forum, 404
 	}
 
-	//conn.QueryRow(`threads_count`, forumId).Scan(&forum.Threads)
-	//conn.QueryRow(`posts_count`, forumId).Scan(&forum.Posts)
-
 	return forum, 200
 }
