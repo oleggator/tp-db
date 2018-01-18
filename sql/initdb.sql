@@ -115,10 +115,12 @@ CREATE INDEX post_thread_parent_index
 CREATE INDEX post_thread_id_index
   on post ("thread", id);
 
-CREATE INDEX post_thread_id_parent_root_index
+CREATE UNIQUE INDEX post_thread_id_parent_root_index
   on post (thread, id, parent, root_parent)
   where parent=0;
 
+CREATE UNIQUE INDEX post_id_root_index
+  on post (id, root_parent);
 
 CREATE TABLE IF NOT EXISTS ForumUser (
   id      BIGSERIAL                NOT NULL    PRIMARY KEY,
