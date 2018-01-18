@@ -42,9 +42,6 @@ CREATE TABLE IF NOT EXISTS Thread (
 CREATE UNIQUE INDEX thread_slug_index
   ON thread (slug);
 
--- CREATE INDEX thread_author_index
---   ON thread (author);
-
 CREATE INDEX thread_forum_created_index
   ON thread (forum, created);
 
@@ -80,20 +77,11 @@ CREATE TABLE IF NOT EXISTS Post (
   "thread" BIGINT REFERENCES Thread (id) ON DELETE CASCADE
 );
 
--- CREATE INDEX post_forum_index
---   ON post (forum);
-
 CREATE INDEX post_thread_parents_index
   ON post ("thread", parents);
 
--- CREATE UNIQUE INDEX post_id_parents_index
---   ON post (id, parents);
-
 CREATE INDEX post_root_parent_index
   ON post (root_parent);
-
--- CREATE INDEX post_thread_parent_index
---   ON post ("thread", parent);
 
 CREATE INDEX post_thread_id_index
   on post ("thread", id);

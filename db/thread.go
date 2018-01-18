@@ -216,11 +216,11 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 	if err == nil {
 		err = tx.QueryRow(`
 			with delta as (
-				INSERT INTO Vote (author, thread, voice)
-					VALUES ((select id from "User" where nickname=$2), $1, $3)
-				ON CONFLICT ON CONSTRAINT unique_author_and_thread
-					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
-				RETURNING (prevVoice - voice) as d
+				insert into Vote (author, thread, voice)
+					values ((select id from "User" where nickname=$2), $1, $3)
+				on conflict on constraint unique_author_and_thread
+					do update set prevVoice = vote.voice, voice = EXCLUDED.voice
+				returning (prevVoice - voice) as d
 			)
 			update Thread
 			set votes = votes - (select d from delta)
@@ -230,11 +230,11 @@ func VoteThread(vote *models.Vote, threadSlug string) (thread *models.Thread, st
 	} else {
 		err = tx.QueryRow(`
 			with delta as (
-				INSERT INTO Vote (author, thread, voice)
-					VALUES ((select id from "User" where nickname=$2), (select id from thread where slug = $1), $3)
-				ON CONFLICT ON CONSTRAINT unique_author_and_thread
-					DO UPDATE SET prevVoice = vote.voice, voice = EXCLUDED.voice
-				RETURNING (prevVoice - voice) as d
+				insert into Vote (author, thread, voice)
+					values ((select id from "User" where nickname=$2), (select id from thread where slug = $1), $3)
+				on conflict on constraint unique_author_and_thread
+					do update set prevVoice = vote.voice, voice = EXCLUDED.voice
+				returning (prevVoice - voice) as d
 			)
 			update Thread
 			set votes = votes - (select d from delta)

@@ -99,31 +99,6 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 			nil,
 			nil,
 		)
-
-		//batch.Queue(
-		//	`
-		//		with s as (
-		//			select $1, about, email, fullname, $2 from "User"
-		//			where nickname=$2
-		//		)
-		//		insert into ForumUser (slug, about, email, fullname, nickname)
-		//		select * from s
-		//		on conflict do nothing
-		//	`,
-		//	[]interface{}{forumSlug, srcPosts[i].Author},
-		//	[]pgtype.OID{pgtype.VarcharOID, pgtype.VarcharOID},
-		//	nil,
-		//)
-		//
-		//batch.Queue(
-		//	`
-		//		update forum set postsCount=postsCount+1
-		//		where id=$1
-		//	`,
-		//	[]interface{}{forumId},
-		//	[]pgtype.OID{pgtype.Int8OID},
-		//	nil,
-		//)
 	}
 
 	batch.Send(context.Background(), nil)
