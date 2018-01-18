@@ -1,4 +1,4 @@
-SET auto_explain.log_nested_statements = ON;
+-- SET auto_explain.log_nested_statements = ON;
 CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE TABLE IF NOT EXISTS "User" (
