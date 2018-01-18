@@ -100,6 +100,45 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 			nil,
 		)
 
+		//batch.Queue(
+		//	`
+		//		with s as (
+		//			select $1, about, email, fullname, $2 from "User"
+		//			where nickname=$2
+		//		)
+		//		insert into ForumUser (slug, about, email, fullname, nickname)
+		//		select * from s
+		//		on conflict do nothing
+		//	`,
+		//	[]interface{}{forumSlug, srcPosts[i].Author},
+		//	[]pgtype.OID{pgtype.VarcharOID, pgtype.VarcharOID},
+		//	nil,
+		//)
+		//
+		//batch.Queue(
+		//	`
+		//		update forum set postsCount=postsCount+1
+		//		where id=$1
+		//	`,
+		//	[]interface{}{forumId},
+		//	[]pgtype.OID{pgtype.Int8OID},
+		//	nil,
+		//)
+	}
+
+	batch.Send(context.Background(), nil)
+
+	_, err = batch.ExecResults()
+	if err != nil {
+		tx.Rollback()
+		return nil, 404
+	}
+
+	batch.Close()
+	tx.Commit()
+
+	batch = conn.BeginBatch()
+	for i, _ := range srcPosts {
 		batch.Queue(
 			`
 				with s as (
@@ -126,39 +165,10 @@ func CreatePosts(srcPosts []models.Post, threadSlug string) (posts []models.Post
 		)
 	}
 
-	batch.Send(context.Background(), nil)
-
+	err = batch.Send(context.Background(), nil)
 	_, err = batch.ExecResults()
-	if err != nil {
-		tx.Rollback()
-		return nil, 404
-	}
 
 	batch.Close()
-	tx.Commit()
-
-	//batch = conn.BeginBatch()
-	//for i, _ := range srcPosts {
-	//	batch.Queue(
-	//		`
-	//			with s as (
-	//				select $1, about, email, fullname, $2 from "User"
-	//				where nickname=$2
-	//			)
-	//			insert into ForumUser (slug, about, email, fullname, nickname)
-	//			select * from s
-	//			on conflict do nothing
-	//		`,
-	//		[]interface{}{forumSlug, srcPosts[i].Author},
-	//		[]pgtype.OID{pgtype.VarcharOID, pgtype.VarcharOID},
-	//		nil,
-	//	)
-	//}
-	//
-	//err = batch.Send(context.Background(), nil)
-	//_, err = batch.ExecResults()
-	//
-	//batch.Close()
 
 	return srcPosts, 201
 }
