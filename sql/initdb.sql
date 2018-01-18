@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS "User" (
 CREATE UNIQUE INDEX user_nickname_email_index
   ON "User" (nickname, email);
 
+
 CREATE TABLE IF NOT EXISTS Forum (
   id        BIGSERIAL NOT NULL    PRIMARY KEY,
   slug      CITEXT    NOT NULL    UNIQUE,
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS Forum (
 
 CREATE UNIQUE INDEX forum_slug_id_index
   ON forum (slug, id);
+
 
 CREATE TABLE IF NOT EXISTS Thread (
   id      BIGSERIAL                NOT NULL    PRIMARY KEY,
@@ -40,14 +42,15 @@ CREATE TABLE IF NOT EXISTS Thread (
 CREATE UNIQUE INDEX thread_slug_index
   ON thread (slug);
 
-CREATE INDEX thread_author_index
-  ON thread (author);
+-- CREATE INDEX thread_author_index
+--   ON thread (author);
 
 CREATE INDEX thread_forum_created_index
   ON thread (forum, created);
 
 CREATE INDEX thread_forum_index
   ON thread (forum);
+
 
 CREATE TABLE IF NOT EXISTS Vote (
   id     BIGSERIAL NOT NULL    PRIMARY KEY,
@@ -56,11 +59,11 @@ CREATE TABLE IF NOT EXISTS Vote (
   voice  INTEGER,
   prevVoice INTEGER DEFAULT 0,
   CONSTRAINT unique_author_and_thread UNIQUE (author, thread)
-
 );
 
 CREATE UNIQUE INDEX vote_thread_author_index
   ON vote (thread, author);
+
 
 CREATE TABLE IF NOT EXISTS Post (
   id       BIGSERIAL                NOT NULL    PRIMARY KEY,
@@ -77,20 +80,20 @@ CREATE TABLE IF NOT EXISTS Post (
   "thread" BIGINT REFERENCES Thread (id) ON DELETE CASCADE
 );
 
-CREATE INDEX post_forum_index
-  ON post (forum);
+-- CREATE INDEX post_forum_index
+--   ON post (forum);
 
 CREATE INDEX post_thread_parents_index
   ON post ("thread", parents);
 
-CREATE UNIQUE INDEX post_id_parents_index
-  ON post (id, parents);
+-- CREATE UNIQUE INDEX post_id_parents_index
+--   ON post (id, parents);
 
 CREATE INDEX post_root_parent_index
   ON post (root_parent);
 
-CREATE INDEX post_thread_parent_index
-  ON post ("thread", parent);
+-- CREATE INDEX post_thread_parent_index
+--   ON post ("thread", parent);
 
 CREATE INDEX post_thread_id_index
   on post ("thread", id);
@@ -101,6 +104,7 @@ CREATE INDEX post_thread_id_parent_root_index
 
 CREATE INDEX post_id_root_index
   on post (id, root_parent);
+
 
 CREATE TABLE IF NOT EXISTS ForumUser (
   id      BIGSERIAL                NOT NULL    PRIMARY KEY,
