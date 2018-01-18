@@ -103,8 +103,8 @@ CREATE INDEX post_forum_index
 CREATE INDEX post_thread_parents_index
   ON post ("thread", parents);
 
--- CREATE INDEX post_parents_index
---   ON post (parents);
+CREATE UNIQUE INDEX post_id_parents_index
+  ON post (id, parents);
 
 CREATE INDEX post_root_parent_index
   ON post (root_parent);
